@@ -1,6 +1,6 @@
-use std::thread;
+use std::{sync::RwLock, thread};
 
-use common::square::Square;
+use common::{board::Board, square::Square};
 use crossbeam_channel::Receiver;
 use gui::Gui;
 
@@ -15,9 +15,10 @@ pub enum Event {
 }
 
 fn main() -> Result<(), anyhow::Error> {
+    let board = RwLock::new(Board::default());
     let (sender, recv) = crossbeam_channel::unbounded::<Event>();
 
-    let gui = Gui::new(sender);
+    let gui = Gui::new(board, sender);
     gui::run(gui);
 
     thread::spawn(logic(recv));

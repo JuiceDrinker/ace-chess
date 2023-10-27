@@ -1,11 +1,14 @@
 pub mod config;
 mod theme;
 
+use std::sync::RwLock;
+
 use ggez::event::{KeyCode, KeyMods, MouseButton};
 use ggez::{event, graphics, Context, GameError};
 
 use self::config::BOARD_CELL_PX_SIZE;
 use self::theme::Theme;
+use crate::common::board::Board;
 use crate::common::square::{Square, ALL_SQUARES};
 use crate::gui::config::BOARD_PX_SIZE;
 use crate::prelude::BOARD_SIZE;
@@ -13,14 +16,16 @@ use crate::Event;
 
 type GameResult<T = ()> = Result<T, GameError>;
 pub struct Gui {
+    board: RwLock<Board>,
     selected_square: Option<Square>,
     logic_channel: crossbeam_channel::Sender<Event>,
     theme: Theme,
 }
 
 impl Gui {
-    pub fn new(logic_channel: crossbeam_channel::Sender<Event>) -> Self {
+    pub fn new(board: RwLock<Board>, logic_channel: crossbeam_channel::Sender<Event>) -> Self {
         Self {
+            board,
             selected_square: None,
             logic_channel,
             theme: Theme::default(),
@@ -30,8 +35,8 @@ impl Gui {
     // Draw all of the board side.
     fn draw_board(&self, ctx: &mut Context) -> GameResult {
         self.draw_empty_board(ctx)?;
-        self.draw_legal_moves(ctx)?;
-        // self.draw_content_board(ctx)?;
+        // self.draw_legal_moves(ctx)?;
+        self.draw_content_board(ctx)?;
         Ok(())
     }
 
@@ -67,7 +72,7 @@ impl Gui {
         let mut path;
         let mut image;
         for square in ALL_SQUARES {
-            if let Some((piece, color)) = self.chess.board.on(square) {
+            if let Some((piece, color)) = self.board.read().unwrap().on(square) {
                 path = self.theme.piece_path[color.to_index()][piece.to_index()];
                 image = graphics::Image::new(ctx, path).expect("Image load error");
                 let (x, y) = square.to_screen();
