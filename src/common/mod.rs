@@ -1,12 +1,12 @@
 pub use crate::prelude::*;
 
 pub mod board;
-pub mod square;
+pub mod castle_rights;
+pub mod color;
+pub mod direction;
+pub mod file;
 
-mod castle_rights;
-mod color;
-mod direction;
-mod file;
-mod r#move;
-mod piece;
-mod rank;
+pub mod r#move;
+pub mod piece;
+pub mod rank;
+pub mod square;

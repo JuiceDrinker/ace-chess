@@ -13,19 +13,6 @@ pub enum Piece {
     King,
 }
 
-/// Numbers of [`Piece`].
-pub const NUM_PIECES: usize = 6;
-
-/// An array representing each [`Piece`] type, in order of ascending value.
-pub const ALL_PIECES: [Piece; NUM_PIECES] = [
-    Piece::Pawn,
-    Piece::Knight,
-    Piece::Bishop,
-    Piece::Rook,
-    Piece::Queen,
-    Piece::King,
-];
-
 // /// Number of promotion.
 // pub const NUM_PROMOTION_PIECES: usize = 4;
 

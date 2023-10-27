@@ -66,11 +66,11 @@ use super::NUM_COLORS;
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Board {
     squares: [Option<(Piece, Color)>; NUM_SQUARES],
-    side_to_move: Color,
-    castle_rights: [CastleRights; NUM_COLORS],
-    en_passant: Option<Square>,
-    halfmoves: u64,
-    fullmoves: u64,
+    pub side_to_move: Color,
+    pub castle_rights: [CastleRights; NUM_COLORS],
+    pub en_passant: Option<Square>,
+    pub halfmoves: u64,
+    pub fullmoves: u64,
     // pub displayed_node: Option<NodeId>,
 }
 
@@ -117,17 +117,6 @@ impl Board {
     /// Get the fullmoves number.
     pub fn fullmoves(&self) -> u64 {
         self.fullmoves
-    }
-
-    /// Check if the [`Move`] is valid. Legality is not verified.
-    pub fn is_valid(&self, m: Move) -> bool {
-        let mut is_valid = false;
-        if let Some(side) = self.color_on(m.from) {
-            if side == self.side_to_move && self.get_valid_moves(m.from).contains(&m.to) {
-                is_valid = true;
-            }
-        }
-        is_valid
     }
 
     /// Check if the [`Move`] is legal.
@@ -1117,6 +1106,7 @@ mod tests {
 
     #[test]
     #[ignore]
+
     fn is_valid() {
         todo!()
     }

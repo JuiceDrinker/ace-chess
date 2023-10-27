@@ -1,7 +1,7 @@
 pub mod config;
 mod theme;
 
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use ggez::event::{KeyCode, KeyMods, MouseButton};
 use ggez::{event, graphics, Context, GameError};
@@ -16,14 +16,14 @@ use crate::Event;
 
 type GameResult<T = ()> = Result<T, GameError>;
 pub struct Gui {
-    board: RwLock<Board>,
+    board: Arc<RwLock<Board>>,
     selected_square: Option<Square>,
     logic_channel: crossbeam_channel::Sender<Event>,
     theme: Theme,
 }
 
 impl Gui {
-    pub fn new(board: RwLock<Board>, logic_channel: crossbeam_channel::Sender<Event>) -> Self {
+    pub fn new(board: Arc<RwLock<Board>>, logic_channel: crossbeam_channel::Sender<Event>) -> Self {
         Self {
             board,
             selected_square: None,
@@ -89,7 +89,7 @@ impl Gui {
     /// Base function to call when a user click on the screen.
     pub fn click(&mut self, x: f32, y: f32) {
         eprintln!("Click at: ({x},{y}) ");
-        // eprintln!(" on the square: {current_square}")
+        dbg!(self.selected_square);
         if x < BOARD_PX_SIZE.0 {
             self.click_on_board(x, y);
         }
@@ -104,13 +104,23 @@ impl Gui {
     fn click_on_board(&mut self, x: f32, y: f32) {
         dbg!("Click at: ({x},{y}) -> on the square: {current_square}");
         match self.selected_square {
-            Some(_s) => {
-                // self.logic_channel.send(Event::MakeMove(
-                //     self.selected_square,
-                //     Square::from_screen(x, y),
-                // ));
+            Some(s) => {
+                let sent = self
+                    .logic_channel
+                    .send(Event::MakeMove(s, Square::from_screen(x, y)));
+                match sent.is_ok() {
+                    true => {
+                        dbg!("Success");
+                        self.selected_square = None
+                    }
+                    false => {
+                        dbg!(sent);
+                    }
+                }
             }
-            None => self.selected_square = Some(Square::from_screen(x, y)),
+            None => {
+                self.selected_square = Some(Square::from_screen(x, y));
+            }
         };
         // self.logic_channel.send(Event::SquareClicked(x, y));
         // let current_square = Square::from_screen(x, y);
@@ -221,29 +231,4 @@ impl event::EventHandler<GameError> for Gui {
             _ => {}
         };
     }
-}
-// Run the GUI.
-pub fn run(game: Gui) {
-    let default_conf = ggez::conf::Conf {
-        window_mode: ggez::conf::WindowMode::default()
-            .dimensions(config::SCREEN_PX_SIZE.0, config::SCREEN_PX_SIZE.1),
-        window_setup: ggez::conf::WindowSetup::default()
-            .title("Chess")
-            .icon("/images/icon.png"),
-        backend: ggez::conf::Backend::default(),
-        modules: ggez::conf::ModuleConf {
-            gamepad: false,
-            audio: false,
-        },
-    };
-    let (ctx, event_loop) =
-        ggez::ContextBuilder::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_AUTHORS"))
-            .add_resource_path::<std::path::PathBuf>(
-                [env!("CARGO_MANIFEST_DIR"), "resources"].iter().collect(),
-            )
-            .default_conf(default_conf)
-            .build()
-            .expect("Failed to build ggez context");
-
-    ggez::event::run(ctx, event_loop, game)
 }
