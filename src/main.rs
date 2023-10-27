@@ -1,11 +1,9 @@
-use std::{
-    sync::{Arc, RwLock},
-    thread,
-};
+use std::thread;
 
 use common::{board::Board, square::Square};
 use event::Event;
 use gui::{config, Gui};
+use logic::Dispatcher;
 
 mod common;
 mod error;
@@ -15,17 +13,20 @@ mod logic;
 mod prelude;
 
 fn main() -> Result<(), anyhow::Error> {
-    let board = Arc::new(RwLock::new(Board::default()));
-    let (sender, recv) = crossbeam_channel::unbounded::<Event>();
+    let (gui_sender, logic_recv) = crossbeam_channel::unbounded::<Event>();
+    let (logic_sender, gui_recv) = crossbeam_channel::unbounded();
 
-    let gui = Gui::new(board.clone(), sender);
-    thread::spawn(move || loop {
-        let event = recv
-            .recv()
-            .expect("Waiting for new commands on logic thread");
-        dbg!("Got event", &event);
-        logic::dispatcher(event, board.clone());
+    thread::spawn(move || {
+        let board = Board::default();
+        let mut dispatcher = Dispatcher::new(board, logic_sender);
+        loop {
+            let event = logic_recv
+                .recv()
+                .expect("Waiting for new commands on logic thread");
+            dispatcher.dispatch(event);
+        }
     });
+    let gui = Gui::new(gui_sender, gui_recv);
     run(gui);
     Ok(())
 }

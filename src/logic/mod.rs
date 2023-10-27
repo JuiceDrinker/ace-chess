@@ -1,46 +1,61 @@
-use std::sync::{Arc, RwLock};
-
 use crate::{
     common::{board::Board, r#move::Move, square::Square},
     event::Event,
+    logic::writer::update_board,
 };
-
-use self::writer::Writer;
 
 mod writer;
 
-pub fn dispatcher(event: Event, board: Arc<RwLock<Board>>) {
-    dbg!("Got event: {:?}", &event);
-    match event {
-        Event::MakeMove(from, to) => play(from, to, board),
-    }
+#[derive(Debug, Clone)]
+pub struct Dispatcher {
+    board: Board,
+    sender: crossbeam_channel::Sender<Board>,
 }
-
-pub fn play(from: Square, to: Square, board: Arc<RwLock<Board>>) {
-    let writer = Writer::new(board.clone());
-    let m = Move::new(from, to);
-    if board.read().unwrap().is_legal(m) {
-        //     match self.board.displayed_node {
-        //         None => {
-        //             let id = self.tree.new_node(TreeNode::new(&m, self));
-        //             self.board.displayed_node = Some(id);
-        //         }
-        //         Some(node) => {
-        //             match node
-        //                 .children(&self.tree)
-        //                 .find(|n| self.tree[*n].get().notation == self.convert_move_to_notation(&m))
-        //             {
-        //                 Some(child) => self.board.displayed_node = Some(child),
-        //                 None => {
-        //                     let new_node = self.tree.new_node(TreeNode::new(&m, self));
-        //                     node.append(new_node, &mut self.tree);
-        //                     self.board.displayed_node = Some(new_node);
-        //                 }
-        //             }
-        //         }
-        //     }
-
-        writer.update_board(m);
+impl Dispatcher {
+    pub fn new(board: Board, sender: crossbeam_channel::Sender<Board>) -> Self {
+        Self { board, sender }
     }
-    // }
+
+    pub fn dispatch(&mut self, event: Event) {
+        match event {
+            Event::MakeMove(from, to) => {
+                dbg!(from);
+                dbg!(to);
+                self.play(from, to, self.board);
+                dbg!(self.board.to_string());
+            }
+            Event::AskForBoard => {
+                let _ = self.sender.send(self.board);
+            }
+        }
+    }
+
+    pub fn play(&mut self, from: Square, to: Square, board: Board) {
+        let m = Move::new(from, to);
+        if board.is_legal(m) {
+            //     match self.board.displayed_node {
+            //         None => {
+            //             let id = self.tree.new_node(TreeNode::new(&m, self));
+            //             self.board.displayed_node = Some(id);
+            //         }
+            //         Some(node) => {
+            //             match node
+            //                 .children(&self.tree)
+            //                 .find(|n| self.tree[*n].get().notation == self.convert_move_to_notation(&m))
+            //             {
+            //                 Some(child) => self.board.displayed_node = Some(child),
+            //                 None => {
+            //                     let new_node = self.tree.new_node(TreeNode::new(&m, self));
+            //                     node.append(new_node, &mut self.tree);
+            //                     self.board.displayed_node = Some(new_node);
+            //                 }
+            //             }
+            //         }
+            //     }
+
+            self.board = update_board(m, self.board);
+            dbg!(self.board.to_string());
+        }
+        // }
+    }
 }

@@ -1,8 +1,6 @@
 pub mod config;
 mod theme;
 
-use std::sync::{Arc, RwLock};
-
 use ggez::event::{KeyCode, KeyMods, MouseButton};
 use ggez::{event, graphics, Context, GameError};
 
@@ -16,20 +14,29 @@ use crate::Event;
 
 type GameResult<T = ()> = Result<T, GameError>;
 pub struct Gui {
-    board: Arc<RwLock<Board>>,
     selected_square: Option<Square>,
     logic_channel: crossbeam_channel::Sender<Event>,
+    receiver: crossbeam_channel::Receiver<Board>,
     theme: Theme,
 }
 
 impl Gui {
-    pub fn new(board: Arc<RwLock<Board>>, logic_channel: crossbeam_channel::Sender<Event>) -> Self {
+    pub fn new(
+        logic_channel: crossbeam_channel::Sender<Event>,
+        gui_channel: crossbeam_channel::Receiver<Board>,
+    ) -> Self {
         Self {
-            board,
             selected_square: None,
             logic_channel,
+            receiver: gui_channel,
             theme: Theme::default(),
         }
+    }
+
+    pub fn board(&self) -> Board {
+        self.logic_channel.send(Event::AskForBoard);
+        let board = self.receiver.recv().unwrap();
+        board
     }
 
     // Draw all of the board side.
@@ -72,7 +79,7 @@ impl Gui {
         let mut path;
         let mut image;
         for square in ALL_SQUARES {
-            if let Some((piece, color)) = self.board.read().unwrap().on(square) {
+            if let Some((piece, color)) = self.board().on(square) {
                 path = self.theme.piece_path[color.to_index()][piece.to_index()];
                 image = graphics::Image::new(ctx, path).expect("Image load error");
                 let (x, y) = square.to_screen();
