@@ -5,6 +5,7 @@ mod theme;
 use ggez::event::{KeyCode, KeyMods, MouseButton};
 use ggez::{event, graphics, Context, GameError};
 
+use self::button::Button;
 use self::config::BOARD_CELL_PX_SIZE;
 use self::theme::Theme;
 use crate::common::board::Board;
@@ -19,6 +20,7 @@ pub struct Gui {
     logic_channel: crossbeam_channel::Sender<Event>,
     receiver: crossbeam_channel::Receiver<Event>,
     theme: Theme,
+    buttons: Vec<Button>,
 }
 
 impl Gui {
@@ -27,6 +29,7 @@ impl Gui {
         gui_channel: crossbeam_channel::Receiver<Event>,
     ) -> Self {
         Self {
+            buttons: vec![],
             selected_square: None,
             logic_channel,
             receiver: gui_channel,
@@ -45,7 +48,7 @@ impl Gui {
     // Draw all of the board side.
     fn draw_board(&self, ctx: &mut Context) -> GameResult {
         self.draw_empty_board(ctx)?;
-        // self.draw_legal_moves(ctx)?;
+        self.draw_legal_moves(ctx)?;
         self.draw_content_board(ctx)?;
         Ok(())
     }
@@ -77,24 +80,37 @@ impl Gui {
         Ok(())
     }
 
-    // fn draw_legal_moves(&self, ctx: &mut Context) -> GameResult {
-    //     if self.theme.valid_moves_color.is_some() {
-    //         if let Some(square) = self.chess.square_focused {
-    //             for dest in self.chess.board.get_legal_moves(square) {
-    //                 let (x, y) = dest.to_screen();
-    //                 let mesh = graphics::MeshBuilder::new()
-    //                     .rectangle(
-    //                         graphics::DrawMode::fill(),
-    //                         graphics::Rect::new(x, y, BOARD_CELL_PX_SIZE.0, BOARD_CELL_PX_SIZE.1),
-    //                         self.theme.valid_moves_color.unwrap(),
-    //                     )?
-    //                     .build(ctx)?;
-    //                 graphics::draw(ctx, &mesh, graphics::DrawParam::default())?;
-    //             }
-    //         }
-    //     }
-    //     Ok(())
-    // }
+    fn draw_legal_moves(&self, ctx: &mut Context) -> GameResult {
+        if self.theme.valid_moves_color.is_some() {
+            if let Some(square) = self.selected_square {
+                let _ = self.logic_channel.send(Event::GetLegalMoves(square));
+                match self.receiver.recv().unwrap() {
+                    Event::SendLegalMoves(dest) => {
+                        for d in dest {
+                            let (x, y) = d.as_screen_coords();
+                            let mesh = graphics::MeshBuilder::new()
+                                .rectangle(
+                                    graphics::DrawMode::fill(),
+                                    graphics::Rect::new(
+                                        x,
+                                        y,
+                                        BOARD_CELL_PX_SIZE.0,
+                                        BOARD_CELL_PX_SIZE.1,
+                                    ),
+                                    self.theme.valid_moves_color.unwrap(),
+                                )?
+                                .build(ctx)?;
+                            graphics::draw(ctx, &mesh, graphics::DrawParam::default())?;
+                        }
+                    }
+                    _ => {
+                        let _ = self.draw_legal_moves(ctx);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
 
     /// Draw pieces on the board.
     fn draw_content_board(&self, ctx: &mut Context) -> GameResult {
@@ -123,10 +139,15 @@ impl Gui {
     pub fn click(&mut self, x: f32, y: f32) {
         if x < BOARD_PX_SIZE.0 {
             self.click_on_board(x, y);
+        } else {
+            for button in self.buttons.clone().iter() {
+                if button.contains(x, y) {
+                    if let Some(event) = button.clicked() {
+                        let _ = self.logic_channel.send(event.clone());
+                    }
+                }
+            }
         }
-        //else {
-        //     self.click_on_side(x, y);
-        // }
     }
 
     // React when the user click on the board screen.
@@ -159,18 +180,13 @@ impl Gui {
         //     }
         // }
     }
-    //
-    // /// React when the user click on the side screen.
-    // ///
-    // /// It is the callers responsibility to ensure the coordinate is in the side.
-    // fn click_on_side(&mut self, x: f32, y: f32) {
-    //     info!("Click at: ({x},{y}) -> on the side screen");
-    //     for button in self.buttons.clone().iter() {
-    //         if button.contains(x, y) {
-    //             button.clicked(self);
-    //         }
-    //     }
-    // }
+
+    fn draw_side(&self, ctx: &mut Context) -> GameResult {
+        for button in self.buttons.iter() {
+            button.draw(ctx, self.theme.font_path, self.theme.font_scale)?;
+        }
+        Ok(())
+    }
 }
 
 impl event::EventHandler<GameError> for Gui {
@@ -194,7 +210,7 @@ impl event::EventHandler<GameError> for Gui {
 
         // Draw the board and the side screen (that contains all button/info)
         self.draw_board(ctx)?;
-        // self.draw_side(ctx)?;
+        self.draw_side(ctx)?;
 
         // Finally we call graphics::present to cycle the gpu's framebuffer and display
         // the new frame we just drew.

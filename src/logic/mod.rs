@@ -21,6 +21,11 @@ impl Dispatcher {
             Event::RequestBoard => {
                 let _ = self.sender.send(Event::SendBoard(self.board));
             }
+            Event::GetLegalMoves(square) => {
+                let _ = self
+                    .sender
+                    .send(Event::SendLegalMoves(self.board.get_legal_moves(square)));
+            }
             _ => {}
         }
     }
@@ -47,7 +52,6 @@ impl Dispatcher {
             //             }
             //         }
             //     }
-
             self.board = board.update(m);
         }
         // }
