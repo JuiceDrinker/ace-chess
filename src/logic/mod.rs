@@ -19,10 +19,7 @@ impl Dispatcher {
     pub fn dispatch(&mut self, event: Event) {
         match event {
             Event::MakeMove(from, to) => {
-                dbg!(from);
-                dbg!(to);
                 self.play(from, to, self.board);
-                dbg!(self.board.to_string());
             }
             Event::AskForBoard => {
                 let _ = self.sender.send(self.board);
@@ -54,7 +51,6 @@ impl Dispatcher {
             //     }
 
             self.board = update_board(m, self.board);
-            dbg!(self.board.to_string());
         }
         // }
     }

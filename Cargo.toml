@@ -10,3 +10,8 @@ anyhow = "1.0.75"
 crossbeam-channel = "0.5.8"
 ggez = "0.7.0"
 
+[profile.release]
+debug = true
+
+[profile.dev]
+opt-level = 3

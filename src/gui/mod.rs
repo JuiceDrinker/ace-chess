@@ -34,9 +34,8 @@ impl Gui {
     }
 
     pub fn board(&self) -> Board {
-        self.logic_channel.send(Event::AskForBoard);
-        let board = self.receiver.recv().unwrap();
-        board
+        let _ = self.logic_channel.send(Event::AskForBoard);
+        self.receiver.recv().unwrap()
     }
 
     // Draw all of the board side.
@@ -109,21 +108,12 @@ impl Gui {
     //
     // It is the callers responsibility to ensure the coordinate is in the board.
     fn click_on_board(&mut self, x: f32, y: f32) {
-        dbg!("Click at: ({x},{y}) -> on the square: {current_square}");
         match self.selected_square {
             Some(s) => {
-                let sent = self
+                let _ = self
                     .logic_channel
                     .send(Event::MakeMove(s, Square::from_screen(x, y)));
-                match sent.is_ok() {
-                    true => {
-                        dbg!("Success");
-                        self.selected_square = None
-                    }
-                    false => {
-                        dbg!(sent);
-                    }
-                }
+                self.selected_square = None
             }
             None => {
                 self.selected_square = Some(Square::from_screen(x, y));
