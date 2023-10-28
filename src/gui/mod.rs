@@ -29,7 +29,7 @@ impl Gui {
         gui_channel: crossbeam_channel::Receiver<Event>,
     ) -> Self {
         Self {
-            buttons: vec![],
+            buttons: vec![Button::create_prev_move_button()],
             selected_square: None,
             logic_channel,
             receiver: gui_channel,
@@ -228,22 +228,22 @@ impl event::EventHandler<GameError> for Gui {
     }
 
     // Change the [`ggez::input::mouse::CursorIcon`] when the mouse is on a button.
-    // fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, _dx: f32, _dy: f32) {
-    //     if x > BOARD_PX_SIZE.0 {
-    //         let mut on_button = false;
-    //         for button in self.buttons.iter() {
-    //             if button.contains(x, y) {
-    //                 on_button = true;
-    //                 break;
-    //             }
-    //         }
-    //         if on_button {
-    //             ggez::input::mouse::set_cursor_type(ctx, ggez::input::mouse::CursorIcon::Hand);
-    //         } else {
-    //             ggez::input::mouse::set_cursor_type(ctx, ggez::input::mouse::CursorIcon::Default);
-    //         }
-    //     }
-    // }
+    fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, _dx: f32, _dy: f32) {
+        if x > BOARD_PX_SIZE.0 {
+            let mut on_button = false;
+            for button in self.buttons.iter() {
+                if button.contains(x, y) {
+                    on_button = true;
+                    break;
+                }
+            }
+            if on_button {
+                ggez::input::mouse::set_cursor_type(ctx, ggez::input::mouse::CursorIcon::Hand);
+            } else {
+                ggez::input::mouse::set_cursor_type(ctx, ggez::input::mouse::CursorIcon::Default);
+            }
+        }
+    }
 
     /// Called every time a key gets pressed.
     ///
