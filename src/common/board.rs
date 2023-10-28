@@ -101,7 +101,7 @@ impl Board {
 
     /// Get the [`CastleRights`] for a given side.
     pub fn castle_rights(&self, color: Color) -> CastleRights {
-        self.castle_rights[color.to_index()]
+        self.castle_rights[color.as_index()]
     }
 
     /// Get the [`Square`] (if exist) of the En Passant.
@@ -261,13 +261,13 @@ impl Board {
     /// assert_eq!(board.castle_rights(Color::Black), CastleRights::NoRights);
     /// ```
     pub fn remove_castle_rights(&mut self, color: Color, remove: CastleRights) {
-        let index = self.castle_rights(color).to_index() & !remove.to_index();
-        self.castle_rights[color.to_index()] = CastleRights::from_index(index);
+        let index = self.castle_rights(color).as_index() & !remove.as_index();
+        self.castle_rights[color.as_index()] = CastleRights::from_index(index);
     }
 
     /// Get the [`Piece`] at a given [`Square`].
     pub fn piece_on(&self, square: &Square) -> Option<Piece> {
-        self.squares[square.to_index()].map(|(piece, _)| piece)
+        self.squares[square.as_index()].map(|(piece, _)| piece)
     }
 
     /// Verify if the [`Square`] is occupied by the given [`Piece`].
@@ -277,7 +277,7 @@ impl Board {
 
     /// Get the [`Color`] at a given [`Square`].
     pub fn color_on(&self, square: Square) -> Option<Color> {
-        self.squares[square.to_index()].map(|(_, color)| color)
+        self.squares[square.as_index()].map(|(_, color)| color)
     }
 
     /// Verify if the [`Square`] is occupied by the given [`Color`].
@@ -287,7 +287,7 @@ impl Board {
 
     /// Get the [`Color`] at a given [`Square`].
     pub fn on(&self, square: Square) -> Option<(Piece, Color)> {
-        self.squares[square.to_index()].map(|(piece, color)| (piece, color))
+        self.squares[square.as_index()].map(|(piece, color)| (piece, color))
     }
 
     /// Verify if the [`Square`] is occupied by the given [`Piece`] and [`Color`].
@@ -330,12 +330,12 @@ impl Board {
 
     /// Verify if the [`Square`] is empty (i.e. not occupied).
     pub fn is_empty(&self, square: Square) -> bool {
-        self.squares[square.to_index()].is_none()
+        self.squares[square.as_index()].is_none()
     }
 
     /// Verify if the [`Square`] is occupied.
     pub fn is_occupied(&self, square: Square) -> bool {
-        self.squares[square.to_index()].is_some()
+        self.squares[square.as_index()].is_some()
     }
 
     /// Verify if the [`Piece::King`] is in check.
@@ -894,7 +894,7 @@ impl FromStr for Board {
                     cur_file = File::A;
                 }
                 '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' => {
-                    cur_file = File::new(cur_file.to_index() + (x as usize) - ('0' as usize));
+                    cur_file = File::new(cur_file.as_index() + (x as usize) - ('0' as usize));
                 }
                 'r' => {
                     board[Square::make_square(cur_file, cur_rank)] =
@@ -977,23 +977,23 @@ impl FromStr for Board {
 
         // Castling Rights
         if castles.contains('K') && castles.contains('Q') {
-            board.castle_rights[Color::White.to_index()] = CastleRights::Both;
+            board.castle_rights[Color::White.as_index()] = CastleRights::Both;
         } else if castles.contains('K') {
-            board.castle_rights[Color::White.to_index()] = CastleRights::KingSide;
+            board.castle_rights[Color::White.as_index()] = CastleRights::KingSide;
         } else if castles.contains('Q') {
-            board.castle_rights[Color::White.to_index()] = CastleRights::QueenSide;
+            board.castle_rights[Color::White.as_index()] = CastleRights::QueenSide;
         } else {
-            board.castle_rights[Color::White.to_index()] = CastleRights::NoRights;
+            board.castle_rights[Color::White.as_index()] = CastleRights::NoRights;
         }
 
         if castles.contains('k') && castles.contains('q') {
-            board.castle_rights[Color::Black.to_index()] = CastleRights::Both;
+            board.castle_rights[Color::Black.as_index()] = CastleRights::Both;
         } else if castles.contains('k') {
-            board.castle_rights[Color::Black.to_index()] = CastleRights::KingSide;
+            board.castle_rights[Color::Black.as_index()] = CastleRights::KingSide;
         } else if castles.contains('q') {
-            board.castle_rights[Color::Black.to_index()] = CastleRights::QueenSide;
+            board.castle_rights[Color::Black.as_index()] = CastleRights::QueenSide;
         } else {
-            board.castle_rights[Color::Black.to_index()] = CastleRights::NoRights;
+            board.castle_rights[Color::Black.as_index()] = CastleRights::NoRights;
         }
 
         // Possible En Passant Targets
@@ -1015,14 +1015,14 @@ impl fmt::Display for Board {
         let mut count = 0;
         for rank in ALL_RANKS.iter().rev() {
             for file in ALL_FILES.iter() {
-                let square_index = Square::make_square(*file, *rank).to_index();
+                let square_index = Square::make_square(*file, *rank).as_index();
 
                 if let Some((piece, color)) = self.squares[square_index] {
                     if count != 0 {
                         write!(f, "{}", count)?;
                         count = 0;
                     }
-                    write!(f, "{}", piece.to_fen_string(color))?;
+                    write!(f, "{}", piece.as_fen_string(color))?;
                 } else {
                     count += 1;
                 }
@@ -1051,12 +1051,12 @@ impl fmt::Display for Board {
         write!(
             f,
             "{}",
-            self.castle_rights(Color::White).to_string(Color::White)
+            self.castle_rights(Color::White).as_string(Color::White)
         )?;
         write!(
             f,
             "{}",
-            self.castle_rights(Color::Black).to_string(Color::Black)
+            self.castle_rights(Color::Black).as_string(Color::Black)
         )?;
         if self.castle_rights[0] == CastleRights::NoRights
             && self.castle_rights[1] == CastleRights::NoRights
@@ -1082,13 +1082,13 @@ impl Index<Square> for Board {
     type Output = Option<(Piece, Color)>;
 
     fn index(&self, index: Square) -> &Self::Output {
-        &self.squares[index.to_index()]
+        &self.squares[index.as_index()]
     }
 }
 
 impl IndexMut<Square> for Board {
     fn index_mut(&mut self, index: Square) -> &mut Self::Output {
-        &mut self.squares[index.to_index()]
+        &mut self.squares[index.as_index()]
     }
 }
 

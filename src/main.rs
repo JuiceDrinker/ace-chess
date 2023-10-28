@@ -20,9 +20,7 @@ fn main() -> Result<(), anyhow::Error> {
         let board = Board::default();
         let mut dispatcher = Dispatcher::new(board, logic_sender);
         loop {
-            let event = logic_recv
-                .recv()
-                .expect("Waiting for new commands on logic thread");
+            let event = logic_recv.recv().unwrap();
             dispatcher.dispatch(event);
         }
     });

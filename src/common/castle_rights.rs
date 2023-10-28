@@ -32,18 +32,18 @@ impl CastleRights {
     }
 
     /// Convert [`CastleRights`] to [`usize`].
-    pub fn to_index(&self) -> usize {
+    pub fn as_index(&self) -> usize {
         *self as usize
     }
 
     /// Check the castling on the king side.
     pub fn has_kingside(&self) -> bool {
-        self.to_index() & 1 == 1
+        self.as_index() & 1 == 1
     }
 
     /// Check the castling on the queen side.
     pub fn has_queenside(&self) -> bool {
-        self.to_index() & 2 == 2
+        self.as_index() & 2 == 2
     }
 
     /// Convert the castle rights to an FEN compatible [`String`].
@@ -56,7 +56,7 @@ impl CastleRights {
     /// assert_eq!(CastleRights::QueenSide.to_string(Color::Black), "q");
     /// assert_eq!(CastleRights::Both.to_string(Color::White), "KQ");
     /// ```
-    pub fn to_string(&self, color: Color) -> String {
+    pub fn as_string(&self, color: Color) -> String {
         let result = match *self {
             CastleRights::NoRights => "",
             CastleRights::KingSide => "k",

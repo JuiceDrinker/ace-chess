@@ -64,7 +64,7 @@ impl Square {
 
     /// Convert this [`Square`] into a [`usize`].
     #[inline]
-    pub fn to_index(&self) -> usize {
+    pub fn as_index(&self) -> usize {
         *self as usize
     }
 
@@ -80,7 +80,7 @@ impl Square {
     /// ```
     #[inline]
     pub fn make_square(file: File, rank: Rank) -> Square {
-        Square::new(file.to_index() + rank.to_index() * BOARD_SIZE.0 as usize)
+        Square::new(file.as_index() + rank.as_index() * BOARD_SIZE.0 as usize)
     }
 
     /// Transform a screen coordinate into a [`Square`].
@@ -109,10 +109,10 @@ impl Square {
     /// - [`BOARD_SIZE`]
     /// - [`BOARD_CELL_PX_SIZE`]
     #[inline]
-    pub fn to_screen(&self) -> (f32, f32) {
+    pub fn as_screen_coords(&self) -> (f32, f32) {
         // transpose to grid space (return the y-axis)
-        let x = self.file().to_index() as f32;
-        let y = (BOARD_SIZE.1 as usize - self.rank().to_index() - 1) as f32;
+        let x = self.file().as_index() as f32;
+        let y = (BOARD_SIZE.1 as usize - self.rank().as_index() - 1) as f32;
 
         // Transpose to screen space
         let x = x * BOARD_CELL_PX_SIZE.0;
@@ -133,7 +133,7 @@ impl Square {
     /// ```
     #[inline]
     pub fn file(&self) -> File {
-        File::new(self.to_index() % NUM_FILES)
+        File::new(self.as_index() % NUM_FILES)
     }
 
     /// Return the "relative" [`File`] of this square according the side.
@@ -151,7 +151,7 @@ impl Square {
         let file = self.file();
         match color {
             Color::White => file,
-            Color::Black => File::new(NUM_FILES - file.to_index() - 1),
+            Color::Black => File::new(NUM_FILES - file.as_index() - 1),
         }
     }
 
@@ -168,7 +168,7 @@ impl Square {
     /// ```
     #[inline]
     pub fn rank(&self) -> Rank {
-        Rank::new(self.to_index() / NUM_RANKS)
+        Rank::new(self.as_index() / NUM_RANKS)
     }
 
     /// Return the "relative" [`Rank`] of this square according the side.
@@ -189,7 +189,7 @@ impl Square {
         let rank = self.rank();
         match color {
             Color::White => rank,
-            Color::Black => Rank::new(NUM_RANKS - rank.to_index() - 1),
+            Color::Black => Rank::new(NUM_RANKS - rank.as_index() - 1),
         }
     }
 

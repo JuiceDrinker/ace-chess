@@ -1,3 +1,4 @@
+mod button;
 pub mod config;
 mod theme;
 
@@ -34,7 +35,7 @@ impl Gui {
     }
 
     pub fn board(&self) -> Board {
-        let _ = self.logic_channel.send(Event::AskForBoard);
+        let _ = self.logic_channel.send(Event::RequestBoard);
         self.receiver.recv().unwrap()
     }
 
@@ -73,15 +74,34 @@ impl Gui {
         Ok(())
     }
 
+    // fn draw_legal_moves(&self, ctx: &mut Context) -> GameResult {
+    //     if self.theme.valid_moves_color.is_some() {
+    //         if let Some(square) = self.chess.square_focused {
+    //             for dest in self.chess.board.get_legal_moves(square) {
+    //                 let (x, y) = dest.to_screen();
+    //                 let mesh = graphics::MeshBuilder::new()
+    //                     .rectangle(
+    //                         graphics::DrawMode::fill(),
+    //                         graphics::Rect::new(x, y, BOARD_CELL_PX_SIZE.0, BOARD_CELL_PX_SIZE.1),
+    //                         self.theme.valid_moves_color.unwrap(),
+    //                     )?
+    //                     .build(ctx)?;
+    //                 graphics::draw(ctx, &mesh, graphics::DrawParam::default())?;
+    //             }
+    //         }
+    //     }
+    //     Ok(())
+    // }
+
     /// Draw pieces on the board.
     fn draw_content_board(&self, ctx: &mut Context) -> GameResult {
         let mut path;
         let mut image;
         for square in ALL_SQUARES {
             if let Some((piece, color)) = self.board().on(square) {
-                path = self.theme.piece_path[color.to_index()][piece.to_index()];
+                path = self.theme.piece_path[color.as_index()][piece.as_index()];
                 image = graphics::Image::new(ctx, path).expect("Image load error");
-                let (x, y) = square.to_screen();
+                let (x, y) = square.as_screen_coords();
                 let dest_point = [x, y];
                 let image_scale = [0.5, 0.5];
                 let dp = graphics::DrawParam::new()
@@ -94,8 +114,6 @@ impl Gui {
     }
     /// Base function to call when a user click on the screen.
     pub fn click(&mut self, x: f32, y: f32) {
-        eprintln!("Click at: ({x},{y}) ");
-        dbg!(self.selected_square);
         if x < BOARD_PX_SIZE.0 {
             self.click_on_board(x, y);
         }

@@ -44,7 +44,7 @@ impl Rank {
 
     /// Convert this [`Rank`] into a [`usize`].
     #[inline]
-    pub fn to_index(&self) -> usize {
+    pub fn as_index(&self) -> usize {
         *self as usize
     }
 
@@ -53,7 +53,7 @@ impl Rank {
     /// > **Note**: If impossible, wrap around.
     #[inline]
     pub fn up(&self) -> Self {
-        Rank::new(self.to_index() + 1)
+        Rank::new(self.as_index() + 1)
     }
 
     /// Go one rank down.
@@ -61,7 +61,7 @@ impl Rank {
     /// > **Note**: If impossible, wrap around.
     #[inline]
     pub fn down(&self) -> Self {
-        let idx = self.to_index();
+        let idx = self.as_index();
         match idx {
             0 => Rank::new(NUM_RANKS - 1),
             _ => Rank::new(idx - 1),
@@ -71,7 +71,7 @@ impl Rank {
     /// Distance between two [`Rank`].
     #[inline]
     pub fn distance(&self, other: Rank) -> u32 {
-        self.to_index().abs_diff(other.to_index()) as u32
+        self.as_index().abs_diff(other.as_index()) as u32
     }
 
     /// Verify if the [`Rank`] is between two other (i.e. lower <= self <= upper).
@@ -110,14 +110,14 @@ mod tests {
 
     #[test]
     fn to_index() {
-        assert_eq!(Rank::First.to_index(), 0);
-        assert_eq!(Rank::Second.to_index(), 1);
-        assert_eq!(Rank::Third.to_index(), 2);
-        assert_eq!(Rank::Fourth.to_index(), 3);
-        assert_eq!(Rank::Fifth.to_index(), 4);
-        assert_eq!(Rank::Sixth.to_index(), 5);
-        assert_eq!(Rank::Seventh.to_index(), 6);
-        assert_eq!(Rank::Eighth.to_index(), 7);
+        assert_eq!(Rank::First.as_index(), 0);
+        assert_eq!(Rank::Second.as_index(), 1);
+        assert_eq!(Rank::Third.as_index(), 2);
+        assert_eq!(Rank::Fourth.as_index(), 3);
+        assert_eq!(Rank::Fifth.as_index(), 4);
+        assert_eq!(Rank::Sixth.as_index(), 5);
+        assert_eq!(Rank::Seventh.as_index(), 6);
+        assert_eq!(Rank::Eighth.as_index(), 7);
     }
 
     #[test]

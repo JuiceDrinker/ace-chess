@@ -7,16 +7,10 @@ pub enum Color {
     Black,
 }
 
-/// Numbers of [`Color`] in chess game.
-pub const NUM_COLORS: usize = 2;
-
-/// Enumerate all [`colors`][Color].
-pub const ALL_COLORS: [Color; NUM_COLORS] = [Color::White, Color::Black];
-
 impl Color {
     /// Convert the [`Color`] to a [`usize`] for table lookups.
     #[inline]
-    pub fn to_index(&self) -> usize {
+    pub fn as_index(&self) -> usize {
         *self as usize
     }
 }

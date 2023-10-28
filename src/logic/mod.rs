@@ -1,10 +1,7 @@
 use crate::{
     common::{board::Board, r#move::Move, square::Square},
     event::Event,
-    logic::writer::update_board,
 };
-
-mod writer;
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
@@ -21,13 +18,13 @@ impl Dispatcher {
             Event::MakeMove(from, to) => {
                 self.play(from, to, self.board);
             }
-            Event::AskForBoard => {
+            Event::RequestBoard => {
                 let _ = self.sender.send(self.board);
             }
         }
     }
 
-    pub fn play(&mut self, from: Square, to: Square, board: Board) {
+    pub fn play(&mut self, from: Square, to: Square, mut board: Board) {
         let m = Move::new(from, to);
         if board.is_legal(m) {
             //     match self.board.displayed_node {
@@ -50,7 +47,7 @@ impl Dispatcher {
             //         }
             //     }
 
-            self.board = update_board(m, self.board);
+            self.board = board.update(m);
         }
         // }
     }

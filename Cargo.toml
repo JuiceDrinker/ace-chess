@@ -13,5 +13,3 @@ ggez = "0.7.0"
 [profile.release]
 debug = true
 
-[profile.dev]
-opt-level = 3

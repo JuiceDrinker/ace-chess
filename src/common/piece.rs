@@ -22,7 +22,7 @@ pub enum Piece {
 impl Piece {
     /// Convert the [`Piece`] to a [`usize`].
     #[inline]
-    pub fn to_index(&self) -> usize {
+    pub fn as_index(&self) -> usize {
         *self as usize
     }
 
@@ -37,7 +37,7 @@ impl Piece {
     /// assert_eq!(Piece::Knight.to_fen_string(Color::Black), "n");
     /// ```
     #[inline]
-    pub fn to_fen_string(&self, color: Color) -> String {
+    pub fn as_fen_string(&self, color: Color) -> String {
         let piece = format!("{}", self);
         match color {
             Color::White => piece,
@@ -69,29 +69,29 @@ mod tests {
 
     #[test]
     fn to_index() {
-        assert_eq!(Piece::Pawn.to_index(), 0);
-        assert_eq!(Piece::Knight.to_index(), 1);
-        assert_eq!(Piece::Bishop.to_index(), 2);
-        assert_eq!(Piece::Rook.to_index(), 3);
-        assert_eq!(Piece::Queen.to_index(), 4);
-        assert_eq!(Piece::King.to_index(), 5);
+        assert_eq!(Piece::Pawn.as_index(), 0);
+        assert_eq!(Piece::Knight.as_index(), 1);
+        assert_eq!(Piece::Bishop.as_index(), 2);
+        assert_eq!(Piece::Rook.as_index(), 3);
+        assert_eq!(Piece::Queen.as_index(), 4);
+        assert_eq!(Piece::King.as_index(), 5);
     }
 
     #[test]
     fn to_string_per_color() {
-        assert_eq!(Piece::Pawn.to_fen_string(Color::White), "P");
-        assert_eq!(Piece::Knight.to_fen_string(Color::White), "N");
-        assert_eq!(Piece::Bishop.to_fen_string(Color::White), "B");
-        assert_eq!(Piece::Rook.to_fen_string(Color::White), "R");
-        assert_eq!(Piece::Queen.to_fen_string(Color::White), "Q");
-        assert_eq!(Piece::King.to_fen_string(Color::White), "K");
+        assert_eq!(Piece::Pawn.as_fen_string(Color::White), "P");
+        assert_eq!(Piece::Knight.as_fen_string(Color::White), "N");
+        assert_eq!(Piece::Bishop.as_fen_string(Color::White), "B");
+        assert_eq!(Piece::Rook.as_fen_string(Color::White), "R");
+        assert_eq!(Piece::Queen.as_fen_string(Color::White), "Q");
+        assert_eq!(Piece::King.as_fen_string(Color::White), "K");
 
-        assert_eq!(Piece::Pawn.to_fen_string(Color::Black), "p");
-        assert_eq!(Piece::Knight.to_fen_string(Color::Black), "n");
-        assert_eq!(Piece::Bishop.to_fen_string(Color::Black), "b");
-        assert_eq!(Piece::Rook.to_fen_string(Color::Black), "r");
-        assert_eq!(Piece::Queen.to_fen_string(Color::Black), "q");
-        assert_eq!(Piece::King.to_fen_string(Color::Black), "k");
+        assert_eq!(Piece::Pawn.as_fen_string(Color::Black), "p");
+        assert_eq!(Piece::Knight.as_fen_string(Color::Black), "n");
+        assert_eq!(Piece::Bishop.as_fen_string(Color::Black), "b");
+        assert_eq!(Piece::Rook.as_fen_string(Color::Black), "r");
+        assert_eq!(Piece::Queen.as_fen_string(Color::Black), "q");
+        assert_eq!(Piece::King.as_fen_string(Color::Black), "k");
     }
 
     #[test]

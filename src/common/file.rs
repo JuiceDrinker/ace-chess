@@ -42,7 +42,7 @@ impl File {
 
     /// Convert this [`File`] into a [`usize`].
     #[inline]
-    pub fn to_index(&self) -> usize {
+    pub fn as_index(&self) -> usize {
         *self as usize
     }
 
@@ -51,7 +51,7 @@ impl File {
     /// > **Note**: If impossible, wrap around.
     #[inline]
     pub fn left(&self) -> Self {
-        File::new(self.to_index().wrapping_sub(1))
+        File::new(self.as_index().wrapping_sub(1))
     }
 
     /// Go one file to the right.
@@ -59,13 +59,13 @@ impl File {
     /// > **Note**: If impossible, wrap around.
     #[inline]
     pub fn right(&self) -> Self {
-        File::new(self.to_index() + 1)
+        File::new(self.as_index() + 1)
     }
 
     /// Distance between two [`File`].
     #[inline]
     pub fn distance(&self, other: File) -> u32 {
-        self.to_index().abs_diff(other.to_index()) as u32
+        self.as_index().abs_diff(other.as_index()) as u32
     }
 
     /// Verify if the [`File`] is between two other (i.e. lower <= self <= upper).
@@ -105,14 +105,14 @@ mod tests {
 
     #[test]
     fn to_index() {
-        assert_eq!(File::A.to_index(), 0);
-        assert_eq!(File::B.to_index(), 1);
-        assert_eq!(File::C.to_index(), 2);
-        assert_eq!(File::D.to_index(), 3);
-        assert_eq!(File::E.to_index(), 4);
-        assert_eq!(File::F.to_index(), 5);
-        assert_eq!(File::G.to_index(), 6);
-        assert_eq!(File::H.to_index(), 7);
+        assert_eq!(File::A.as_index(), 0);
+        assert_eq!(File::B.as_index(), 1);
+        assert_eq!(File::C.as_index(), 2);
+        assert_eq!(File::D.as_index(), 3);
+        assert_eq!(File::E.as_index(), 4);
+        assert_eq!(File::F.as_index(), 5);
+        assert_eq!(File::G.as_index(), 6);
+        assert_eq!(File::H.as_index(), 7);
     }
 
     #[test]
