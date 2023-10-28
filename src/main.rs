@@ -13,8 +13,8 @@ mod logic;
 mod prelude;
 
 fn main() -> Result<(), anyhow::Error> {
-    let (gui_sender, logic_recv) = crossbeam_channel::bounded(10);
-    let (logic_sender, gui_recv) = crossbeam_channel::bounded(10);
+    let (gui_sender, logic_recv) = crossbeam_channel::bounded::<Event>(10);
+    let (logic_sender, gui_recv) = crossbeam_channel::bounded::<Event>(10);
 
     thread::spawn(move || {
         let board = Board::default();

@@ -17,14 +17,14 @@ type GameResult<T = ()> = Result<T, GameError>;
 pub struct Gui {
     selected_square: Option<Square>,
     logic_channel: crossbeam_channel::Sender<Event>,
-    receiver: crossbeam_channel::Receiver<Board>,
+    receiver: crossbeam_channel::Receiver<Event>,
     theme: Theme,
 }
 
 impl Gui {
     pub fn new(
         logic_channel: crossbeam_channel::Sender<Event>,
-        gui_channel: crossbeam_channel::Receiver<Board>,
+        gui_channel: crossbeam_channel::Receiver<Event>,
     ) -> Self {
         Self {
             selected_square: None,
@@ -34,9 +34,12 @@ impl Gui {
         }
     }
 
-    pub fn board(&self) -> Board {
+    pub fn board(&self) -> Option<Board> {
         let _ = self.logic_channel.send(Event::RequestBoard);
-        self.receiver.recv().unwrap()
+        match self.receiver.recv().unwrap() {
+            Event::SendBoard(board) => Some(board),
+            _ => None,
+        }
     }
 
     // Draw all of the board side.
@@ -98,16 +101,20 @@ impl Gui {
         let mut path;
         let mut image;
         for square in ALL_SQUARES {
-            if let Some((piece, color)) = self.board().on(square) {
-                path = self.theme.piece_path[color.as_index()][piece.as_index()];
-                image = graphics::Image::new(ctx, path).expect("Image load error");
-                let (x, y) = square.as_screen_coords();
-                let dest_point = [x, y];
-                let image_scale = [0.5, 0.5];
-                let dp = graphics::DrawParam::new()
-                    .dest(dest_point)
-                    .scale(image_scale);
-                graphics::draw(ctx, &image, dp)?;
+            if let Some(board) = self.board() {
+                if let Some((piece, color)) = board.on(square) {
+                    path = self.theme.piece_path[color.as_index()][piece.as_index()];
+                    image = graphics::Image::new(ctx, path).expect("Image load error");
+                    let (x, y) = square.as_screen_coords();
+                    let dest_point = [x, y];
+                    let image_scale = [0.5, 0.5];
+                    let dp = graphics::DrawParam::new()
+                        .dest(dest_point)
+                        .scale(image_scale);
+                    graphics::draw(ctx, &image, dp)?;
+                }
+            } else {
+                return self.draw_content_board(ctx);
             }
         }
         Ok(())

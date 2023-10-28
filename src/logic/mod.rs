@@ -6,10 +6,10 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
     board: Board,
-    sender: crossbeam_channel::Sender<Board>,
+    sender: crossbeam_channel::Sender<Event>,
 }
 impl Dispatcher {
-    pub fn new(board: Board, sender: crossbeam_channel::Sender<Board>) -> Self {
+    pub fn new(board: Board, sender: crossbeam_channel::Sender<Event>) -> Self {
         Self { board, sender }
     }
 
@@ -19,8 +19,9 @@ impl Dispatcher {
                 self.play(from, to, self.board);
             }
             Event::RequestBoard => {
-                let _ = self.sender.send(self.board);
+                let _ = self.sender.send(Event::SendBoard(self.board));
             }
+            _ => {}
         }
     }
 
