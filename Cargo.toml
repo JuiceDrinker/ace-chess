@@ -9,6 +9,8 @@ edition = "2021"
 anyhow = "1.0.75"
 crossbeam-channel = "0.5.8"
 ggez = "0.7.0"
+indextree = "4.6.0"
+serde = "1.0.190"
 
 [profile.release]
 debug = true

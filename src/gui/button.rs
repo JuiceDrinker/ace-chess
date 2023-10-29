@@ -2,14 +2,17 @@ use std::fmt;
 
 use ggez::{graphics, Context, GameResult};
 
-use crate::event::Event;
-
-use super::config::{BOARD_PX_SIZE, SIDE_SCREEN_PX_SIZE};
+use super::{
+    config::{BOARD_PX_SIZE, SIDE_SCREEN_PX_SIZE},
+    Gui,
+};
 
 /// Indicate how align the text (GUI).
 #[derive(Copy, Clone, Eq, PartialEq, Default, Debug)]
 pub enum Align {
+    #[allow(dead_code)]
     Left,
+    #[allow(dead_code)]
     Right,
     #[default]
     Center,
@@ -26,7 +29,7 @@ pub struct Button {
     color: graphics::Color,
     text: &'static str,
     align: Align,
-    on_click: Event,
+    on_click: fn(&mut Gui),
 }
 
 impl Button {
@@ -39,7 +42,7 @@ impl Button {
         color: graphics::Color,
         text: &'static str,
         align: Align,
-        on_click: Event,
+        on_click: fn(&mut Gui),
     ) -> Self {
         Button {
             id,
@@ -95,6 +98,22 @@ impl Button {
         Ok(())
     }
 
+    pub fn create_prev_move_button(on_click: fn(&mut Gui)) -> Button {
+        Button::new(
+            "prev_move",
+            true,
+            graphics::Rect::new(
+                BOARD_PX_SIZE.0 + 20.0,
+                SIDE_SCREEN_PX_SIZE.1 - 210.0,
+                150.0,
+                50.0,
+            ),
+            graphics::Color::new(0.65, 0.44, 0.78, 1.0),
+            "<-",
+            Align::Center,
+            on_click,
+        )
+    }
     /// Draw the text of the button.
     fn draw_text(&self, ctx: &mut Context, font_path: &str, font_scale: f32) -> GameResult {
         let font = graphics::Font::new(ctx, font_path)?;
@@ -129,11 +148,10 @@ impl Button {
     }
 
     /// Call the func when the button is clicked.
-    pub fn clicked(&self) -> Option<&Event> {
+    pub fn clicked(&self, gui: &mut Gui) {
         if self.enable {
-            return Some(&self.on_click);
+            (self.on_click)(gui)
         }
-        None
     }
     // pub fn create_next_move_button() -> Self {
     //     Button::new(
@@ -153,22 +171,6 @@ impl Button {
     //         }),
     //     )
     // }
-    pub fn create_prev_move_button() -> Self {
-        Button::new(
-            "prev_move",
-            true,
-            graphics::Rect::new(
-                BOARD_PX_SIZE.0 + 20.0,
-                SIDE_SCREEN_PX_SIZE.1 - 210.0,
-                150.0,
-                50.0,
-            ),
-            graphics::Color::new(0.65, 0.44, 0.78, 1.0),
-            "<-",
-            Align::Center,
-            Event::GetPrevMove,
-        )
-    }
 }
 
 impl fmt::Display for Button {

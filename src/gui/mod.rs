@@ -4,6 +4,7 @@ mod theme;
 
 use ggez::event::{KeyCode, KeyMods, MouseButton};
 use ggez::{event, graphics, Context, GameError};
+use indextree::NodeId;
 
 use self::button::Button;
 use self::config::BOARD_CELL_PX_SIZE;
@@ -17,10 +18,11 @@ use crate::Event;
 type GameResult<T = ()> = Result<T, GameError>;
 pub struct Gui {
     selected_square: Option<Square>,
-    logic_channel: crossbeam_channel::Sender<Event>,
-    receiver: crossbeam_channel::Receiver<Event>,
     theme: Theme,
     buttons: Vec<Button>,
+    displayed_node: Option<NodeId>,
+    logic_channel: crossbeam_channel::Sender<Event>,
+    receiver: crossbeam_channel::Receiver<Event>,
 }
 
 impl Gui {
@@ -28,13 +30,17 @@ impl Gui {
         logic_channel: crossbeam_channel::Sender<Event>,
         gui_channel: crossbeam_channel::Receiver<Event>,
     ) -> Self {
-        Self {
-            buttons: vec![Button::create_prev_move_button()],
+        let mut gui = Self {
+            buttons: vec![],
+            displayed_node: None,
             selected_square: None,
             logic_channel,
             receiver: gui_channel,
             theme: Theme::default(),
-        }
+        };
+        gui.buttons
+            .push(Button::create_prev_move_button(get_prev_move));
+        gui
     }
 
     pub fn board(&self) -> Option<Board> {
@@ -142,9 +148,7 @@ impl Gui {
         } else {
             for button in self.buttons.clone().iter() {
                 if button.contains(x, y) {
-                    if let Some(event) = button.clicked() {
-                        let _ = self.logic_channel.send(event.clone());
-                    }
+                    button.clicked(self);
                 }
             }
         }
@@ -156,10 +160,19 @@ impl Gui {
     fn click_on_board(&mut self, x: f32, y: f32) {
         match self.selected_square {
             Some(s) => {
-                let _ = self
-                    .logic_channel
-                    .send(Event::MakeMove(s, Square::from_screen(x, y)));
-                self.selected_square = None
+                let _ = self.logic_channel.send(Event::MakeMove(
+                    s,
+                    Square::from_screen(x, y),
+                    self.displayed_node,
+                ));
+                let new_node = match self.receiver.recv().unwrap() {
+                    Event::NewNodeAppended(node) => node,
+                    _ => None,
+                };
+                self.selected_square = None;
+                if new_node.is_some() {
+                    self.displayed_node = new_node;
+                };
             }
             None => {
                 self.selected_square = Some(Square::from_screen(x, y));
@@ -265,8 +278,20 @@ impl event::EventHandler<GameError> for Gui {
             KeyCode::Escape => event::quit(ctx),
             // KeyCode::NavigateForward => self.chess.next_move(),
             // KeyCode::R => self.reset(),
-            // KeyCode::NavigateBackward => self.chess.prev_move(),
+            KeyCode::NavigateBackward => get_prev_move(self),
             _ => {}
+        };
+    }
+}
+fn get_prev_move(gui: &mut Gui) {
+    println!("Am I here too?");
+    if let Some(node) = gui.displayed_node {
+        let _ = gui.logic_channel.send(Event::GetPrevMove(node));
+        match gui.receiver.recv().unwrap() {
+            Event::NewDisplayNode(node) => {
+                gui.displayed_node = node;
+            }
+            _ => get_prev_move(gui),
         };
     }
 }

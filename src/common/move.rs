@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::square::Square;
+use super::{board::Board, piece::Piece, square::Square};
 
 /// Represent a Move
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -29,6 +29,41 @@ impl Move {
     /// ```
     pub fn distance(&self) -> u32 {
         self.from.distance(self.to)
+    }
+
+    pub fn as_notation(&self, board: &Board) -> String {
+        let Move { from, to } = self;
+        let piece = board.piece_on(from).unwrap();
+        let mut move_text = String::from("");
+        if piece == Piece::King {
+            if (from, to) == (&Square::E1, &Square::G1) || (from, to) == (&Square::E8, &Square::G8)
+            {
+                return String::from("0-0");
+            } else if (from, to) == (&Square::E1, &Square::C1)
+                || (from, to) == (&Square::E8, &Square::C8)
+            {
+                return String::from("0-0-0");
+            }
+        } else {
+            let is_capture = board.piece_on(to).is_some();
+            match piece {
+                Piece::Pawn => {
+                    move_text = if is_capture {
+                        format!("{}x{}", from, to)
+                    } else {
+                        format!("{}", to)
+                    }
+                }
+                _ => {
+                    move_text = if is_capture {
+                        format!("{}x{}", piece, to)
+                    } else {
+                        format!("{}{}", piece, to)
+                    }
+                }
+            }
+        }
+        move_text
     }
 }
 
