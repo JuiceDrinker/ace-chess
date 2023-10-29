@@ -165,9 +165,15 @@ impl Gui {
                     Square::from_screen(x, y),
                     self.displayed_node,
                 ));
-                if let Event::NewNodeAppended(Ok(node)) = self.receiver.recv().unwrap() {
-                    self.selected_square = None;
-                    self.displayed_node = Some(node);
+                match self.receiver.recv().unwrap() {
+                    Event::NewNodeAppended(Ok(node)) => {
+                        self.selected_square = None;
+                        self.displayed_node = Some(node);
+                    }
+                    Event::NewNodeAppended(Err(Error::IllegalMove)) => {
+                        self.selected_square = None;
+                    }
+                    _ => self.click_on_board(x, y),
                 };
             }
             // else prime square to be moved

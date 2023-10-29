@@ -596,205 +596,213 @@ impl Board {
     pub fn get_legal_moves(&self, from: Square) -> Vec<Square> {
         let mut valid_moves = Vec::new();
         if let Some((piece_from, side)) = self.on(from) {
-            let mut dest_square;
-            match piece_from {
-                Piece::Pawn => {
-                    // If square forward is is empty
-                    dest_square = from.forward(side);
-                    if self.is_empty(dest_square) {
-                        if !self.is_exposing_move(Move::new(from, dest_square)) {
-                            valid_moves.push(dest_square);
-                        }
-
-                        // First move of the pawn
-                        dest_square = dest_square.forward(side);
-                        if from.rank_for(side) == Rank::Second
-                            && self.is_empty(dest_square)
-                            && !self.is_exposing_move(Move::new(from, dest_square))
-                        {
-                            valid_moves.push(dest_square);
-                        }
-                    }
-
-                    // If can capture (normal or en passant)
-                    if from.file_for(side) == File::A {
-                        dest_square = from.forward(side).right();
-                        if (self.color_on_is(dest_square, !side)
-                            || Some(dest_square) == self.en_passant)
-                            && !self.is_exposing_move(Move::new(from, dest_square))
-                        {
-                            valid_moves.push(dest_square);
-                        }
-                    } else if from.file_for(side) == File::H {
-                        dest_square = from.forward(side).left();
-                        if (self.color_on_is(dest_square, !side)
-                            || Some(dest_square) == self.en_passant)
-                            && !self.is_exposing_move(Move::new(from, dest_square))
-                        {
-                            valid_moves.push(dest_square);
-                        }
-                    } else {
-                        dest_square = from.forward(side).right();
-                        if (self.color_on_is(dest_square, !side)
-                            || Some(dest_square) == self.en_passant)
-                            && !self.is_exposing_move(Move::new(from, dest_square))
-                        {
-                            valid_moves.push(dest_square);
-                        }
-                        dest_square = from.forward(side).left();
-                        if (self.color_on_is(dest_square, !side)
-                            || Some(dest_square) == self.en_passant)
-                            && !self.is_exposing_move(Move::new(from, dest_square))
-                        {
-                            valid_moves.push(dest_square);
-                        }
-                    }
-                }
-                Piece::Knight => {
-                    let knight_moves_rule = vec![
-                        from.up().up().left(),
-                        from.up().up().right(),
-                        from.right().right().up(),
-                        from.right().right().down(),
-                        from.down().down().right(),
-                        from.down().down().left(),
-                        from.left().left().down(),
-                        from.left().left().up(),
-                    ];
-
-                    for square in knight_moves_rule {
-                        if from.distance(square) == 2
-                            && !self.color_on_is(square, side)
-                            && !self.is_exposing_move(Move::new(from, square))
-                        {
-                            valid_moves.push(square);
-                        }
-                    }
-                }
-                Piece::Bishop => {
-                    for direction in ALL_DIAGONAL {
-                        match from.rank() {
-                            Rank::First if direction.has(Direction::Down) => continue,
-                            Rank::Eighth if direction.has(Direction::Up) => continue,
-                            _ => {}
-                        }
-                        match from.file() {
-                            File::A if direction.has(Direction::Left) => continue,
-                            File::H if direction.has(Direction::Right) => continue,
-                            _ => {}
-                        }
-                        let mut old_square = from;
-                        dest_square = old_square.follow_direction(direction);
-                        while self.is_empty(dest_square) && old_square.distance(dest_square) == 1 {
+            if side == self.side_to_move {
+                let mut dest_square;
+                match piece_from {
+                    Piece::Pawn => {
+                        // If square forward is is empty
+                        dest_square = from.forward(side);
+                        if self.is_empty(dest_square) {
                             if !self.is_exposing_move(Move::new(from, dest_square)) {
                                 valid_moves.push(dest_square);
                             }
-                            old_square = dest_square;
-                            dest_square = dest_square.follow_direction(direction);
-                        }
-                        if self.color_on_is(dest_square, !side)
-                            && old_square.distance(dest_square) == 1
-                            && !self.is_exposing_move(Move::new(from, dest_square))
-                        {
-                            valid_moves.push(dest_square);
-                        }
-                    }
-                }
-                Piece::Rook => {
-                    for direction in ALL_LINE {
-                        match from.rank() {
-                            Rank::First if direction.has(Direction::Down) => continue,
-                            Rank::Eighth if direction.has(Direction::Up) => continue,
-                            _ => {}
-                        }
-                        match from.file() {
-                            File::A if direction.has(Direction::Left) => continue,
-                            File::H if direction.has(Direction::Right) => continue,
-                            _ => {}
-                        }
-                        let mut old_square = from;
-                        dest_square = old_square.follow_direction(direction);
-                        while self.is_empty(dest_square) && old_square.distance(dest_square) == 1 {
-                            if !self.is_exposing_move(Move::new(from, dest_square)) {
+
+                            // First move of the pawn
+                            dest_square = dest_square.forward(side);
+                            if from.rank_for(side) == Rank::Second
+                                && self.is_empty(dest_square)
+                                && !self.is_exposing_move(Move::new(from, dest_square))
+                            {
                                 valid_moves.push(dest_square);
                             }
-                            old_square = dest_square;
-                            dest_square = dest_square.follow_direction(direction);
                         }
-                        if self.color_on_is(dest_square, !side)
-                            && old_square.distance(dest_square) == 1
-                            && !self.is_exposing_move(Move::new(from, dest_square))
-                        {
-                            valid_moves.push(dest_square);
-                        }
-                    }
-                }
-                Piece::Queen => {
-                    for direction in ALL_DIRECTION {
-                        match from.rank() {
-                            Rank::First if direction.has(Direction::Down) => continue,
-                            Rank::Eighth if direction.has(Direction::Up) => continue,
-                            _ => {}
-                        }
-                        match from.file() {
-                            File::A if direction.has(Direction::Left) => continue,
-                            File::H if direction.has(Direction::Right) => continue,
-                            _ => {}
-                        }
-                        let mut old_square = from;
-                        dest_square = old_square.follow_direction(direction);
-                        while self.is_empty(dest_square) && old_square.distance(dest_square) == 1 {
-                            if !self.is_exposing_move(Move::new(from, dest_square)) {
+
+                        // If can capture (normal or en passant)
+                        if from.file_for(side) == File::A {
+                            dest_square = from.forward(side).right();
+                            if (self.color_on_is(dest_square, !side)
+                                || Some(dest_square) == self.en_passant)
+                                && !self.is_exposing_move(Move::new(from, dest_square))
+                            {
                                 valid_moves.push(dest_square);
                             }
-                            old_square = dest_square;
-                            dest_square = dest_square.follow_direction(direction);
+                        } else if from.file_for(side) == File::H {
+                            dest_square = from.forward(side).left();
+                            if (self.color_on_is(dest_square, !side)
+                                || Some(dest_square) == self.en_passant)
+                                && !self.is_exposing_move(Move::new(from, dest_square))
+                            {
+                                valid_moves.push(dest_square);
+                            }
+                        } else {
+                            dest_square = from.forward(side).right();
+                            if (self.color_on_is(dest_square, !side)
+                                || Some(dest_square) == self.en_passant)
+                                && !self.is_exposing_move(Move::new(from, dest_square))
+                            {
+                                valid_moves.push(dest_square);
+                            }
+                            dest_square = from.forward(side).left();
+                            if (self.color_on_is(dest_square, !side)
+                                || Some(dest_square) == self.en_passant)
+                                && !self.is_exposing_move(Move::new(from, dest_square))
+                            {
+                                valid_moves.push(dest_square);
+                            }
                         }
-                        if self.color_on_is(dest_square, !side)
-                            && old_square.distance(dest_square) == 1
-                            && !self.is_exposing_move(Move::new(from, dest_square))
+                    }
+                    Piece::Knight => {
+                        let knight_moves_rule = vec![
+                            from.up().up().left(),
+                            from.up().up().right(),
+                            from.right().right().up(),
+                            from.right().right().down(),
+                            from.down().down().right(),
+                            from.down().down().left(),
+                            from.left().left().down(),
+                            from.left().left().up(),
+                        ];
+
+                        for square in knight_moves_rule {
+                            if from.distance(square) == 2
+                                && !self.color_on_is(square, side)
+                                && !self.is_exposing_move(Move::new(from, square))
+                            {
+                                valid_moves.push(square);
+                            }
+                        }
+                    }
+                    Piece::Bishop => {
+                        for direction in ALL_DIAGONAL {
+                            match from.rank() {
+                                Rank::First if direction.has(Direction::Down) => continue,
+                                Rank::Eighth if direction.has(Direction::Up) => continue,
+                                _ => {}
+                            }
+                            match from.file() {
+                                File::A if direction.has(Direction::Left) => continue,
+                                File::H if direction.has(Direction::Right) => continue,
+                                _ => {}
+                            }
+                            let mut old_square = from;
+                            dest_square = old_square.follow_direction(direction);
+                            while self.is_empty(dest_square)
+                                && old_square.distance(dest_square) == 1
+                            {
+                                if !self.is_exposing_move(Move::new(from, dest_square)) {
+                                    valid_moves.push(dest_square);
+                                }
+                                old_square = dest_square;
+                                dest_square = dest_square.follow_direction(direction);
+                            }
+                            if self.color_on_is(dest_square, !side)
+                                && old_square.distance(dest_square) == 1
+                                && !self.is_exposing_move(Move::new(from, dest_square))
+                            {
+                                valid_moves.push(dest_square);
+                            }
+                        }
+                    }
+                    Piece::Rook => {
+                        for direction in ALL_LINE {
+                            match from.rank() {
+                                Rank::First if direction.has(Direction::Down) => continue,
+                                Rank::Eighth if direction.has(Direction::Up) => continue,
+                                _ => {}
+                            }
+                            match from.file() {
+                                File::A if direction.has(Direction::Left) => continue,
+                                File::H if direction.has(Direction::Right) => continue,
+                                _ => {}
+                            }
+                            let mut old_square = from;
+                            dest_square = old_square.follow_direction(direction);
+                            while self.is_empty(dest_square)
+                                && old_square.distance(dest_square) == 1
+                            {
+                                if !self.is_exposing_move(Move::new(from, dest_square)) {
+                                    valid_moves.push(dest_square);
+                                }
+                                old_square = dest_square;
+                                dest_square = dest_square.follow_direction(direction);
+                            }
+                            if self.color_on_is(dest_square, !side)
+                                && old_square.distance(dest_square) == 1
+                                && !self.is_exposing_move(Move::new(from, dest_square))
+                            {
+                                valid_moves.push(dest_square);
+                            }
+                        }
+                    }
+                    Piece::Queen => {
+                        for direction in ALL_DIRECTION {
+                            match from.rank() {
+                                Rank::First if direction.has(Direction::Down) => continue,
+                                Rank::Eighth if direction.has(Direction::Up) => continue,
+                                _ => {}
+                            }
+                            match from.file() {
+                                File::A if direction.has(Direction::Left) => continue,
+                                File::H if direction.has(Direction::Right) => continue,
+                                _ => {}
+                            }
+                            let mut old_square = from;
+                            dest_square = old_square.follow_direction(direction);
+                            while self.is_empty(dest_square)
+                                && old_square.distance(dest_square) == 1
+                            {
+                                if !self.is_exposing_move(Move::new(from, dest_square)) {
+                                    valid_moves.push(dest_square);
+                                }
+                                old_square = dest_square;
+                                dest_square = dest_square.follow_direction(direction);
+                            }
+                            if self.color_on_is(dest_square, !side)
+                                && old_square.distance(dest_square) == 1
+                                && !self.is_exposing_move(Move::new(from, dest_square))
+                            {
+                                valid_moves.push(dest_square);
+                            }
+                        }
+                    }
+                    Piece::King => {
+                        for direction in ALL_DIRECTION {
+                            match from.rank() {
+                                Rank::First if direction.has(Direction::Down) => continue,
+                                Rank::Eighth if direction.has(Direction::Up) => continue,
+                                _ => {}
+                            }
+                            match from.file() {
+                                File::A if direction.has(Direction::Left) => continue,
+                                File::H if direction.has(Direction::Right) => continue,
+                                _ => {}
+                            }
+                            dest_square = from.follow_direction(direction);
+                            if !self.color_on_is(dest_square, side)
+                                && !self.is_exposing_move(Move::new(from, dest_square))
+                            {
+                                valid_moves.push(dest_square);
+                            }
+                        }
+                        if self.castle_rights(side).has_kingside()
+                            && !self.color_on_is(from.right().right(), side)
+                            && !self.color_on_is(from.right(), side)
+                            && !self.is_targeted(from, !side)
+                            && !self.is_targeted(from.right(), !side)
+                            && !self.is_targeted(from.right().right(), !side)
                         {
-                            valid_moves.push(dest_square);
+                            valid_moves.push(from.right().right());
                         }
-                    }
-                }
-                Piece::King => {
-                    for direction in ALL_DIRECTION {
-                        match from.rank() {
-                            Rank::First if direction.has(Direction::Down) => continue,
-                            Rank::Eighth if direction.has(Direction::Up) => continue,
-                            _ => {}
-                        }
-                        match from.file() {
-                            File::A if direction.has(Direction::Left) => continue,
-                            File::H if direction.has(Direction::Right) => continue,
-                            _ => {}
-                        }
-                        dest_square = from.follow_direction(direction);
-                        if !self.color_on_is(dest_square, side)
-                            && !self.is_exposing_move(Move::new(from, dest_square))
+                        if self.castle_rights(side).has_queenside()
+                            && !self.color_on_is(from.left().left(), side)
+                            && !self.color_on_is(from.left(), side)
+                            && !self.is_targeted(from, !side)
+                            && !self.is_targeted(from.left(), !side)
+                            && !self.is_targeted(from.left().left(), !side)
+                            && !self.is_targeted(from.left().left().left(), !side)
                         {
-                            valid_moves.push(dest_square);
+                            valid_moves.push(from.left().left());
                         }
-                    }
-                    if self.castle_rights(side).has_kingside()
-                        && !self.color_on_is(from.right().right(), side)
-                        && !self.color_on_is(from.right(), side)
-                        && !self.is_targeted(from, !side)
-                        && !self.is_targeted(from.right(), !side)
-                        && !self.is_targeted(from.right().right(), !side)
-                    {
-                        valid_moves.push(from.right().right());
-                    }
-                    if self.castle_rights(side).has_queenside()
-                        && !self.color_on_is(from.left().left(), side)
-                        && !self.color_on_is(from.left(), side)
-                        && !self.is_targeted(from, !side)
-                        && !self.is_targeted(from.left(), !side)
-                        && !self.is_targeted(from.left().left(), !side)
-                        && !self.is_targeted(from.left().left().left(), !side)
-                    {
-                        valid_moves.push(from.left().left());
                     }
                 }
             }
