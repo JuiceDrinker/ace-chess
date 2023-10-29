@@ -6,14 +6,13 @@ use ggez::event::{KeyCode, KeyMods, MouseButton};
 use ggez::{event, graphics, Context, GameError};
 use indextree::NodeId;
 
-use self::button::Button;
-use self::config::BOARD_CELL_PX_SIZE;
-use self::theme::Theme;
-use crate::common::board::Board;
-use crate::common::square::{Square, ALL_SQUARES};
-use crate::gui::config::BOARD_PX_SIZE;
-use crate::prelude::BOARD_SIZE;
-use crate::Event;
+use self::{button::Button, config::BOARD_CELL_PX_SIZE, theme::Theme};
+use crate::{common::board::Board, gui::config::BOARD_PX_SIZE, prelude::BOARD_SIZE, Event};
+use crate::{
+    common::square::{Square, ALL_SQUARES},
+    error::Error,
+};
+use anyhow::Result;
 
 type GameResult<T = ()> = Result<T, GameError>;
 pub struct Gui {
@@ -166,14 +165,9 @@ impl Gui {
                     Square::from_screen(x, y),
                     self.displayed_node,
                 ));
-                let new_node = match self.receiver.recv().unwrap() {
-                    Event::NewNodeAppended(node) => node,
-                    _ => None,
-                };
-                self.selected_square = None;
-                // If move was illegal then new_node is None
-                if new_node.is_some() {
-                    self.displayed_node = new_node;
+                if let Event::NewNodeAppended(Ok(node)) = self.receiver.recv().unwrap() {
+                    self.selected_square = None;
+                    self.displayed_node = Some(node);
                 };
             }
             // else prime square to be moved
@@ -273,12 +267,14 @@ impl event::EventHandler<GameError> for Gui {
     }
 }
 fn get_prev_move(gui: &mut Gui) {
-    println!("Am I here too?");
     if let Some(node) = gui.displayed_node {
         let _ = gui.logic_channel.send(Event::GetPrevMove(node));
         match gui.receiver.recv().unwrap() {
-            Event::NewDisplayNode(node) => {
-                gui.displayed_node = node;
+            Event::NewDisplayNode(Ok(node)) => {
+                gui.displayed_node = Some(node);
+            }
+            Event::NewDisplayNode(Err(Error::NoPrevMove)) => {
+                gui.displayed_node = None;
             }
             _ => get_prev_move(gui),
         };

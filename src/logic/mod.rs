@@ -2,10 +2,12 @@ mod treenode;
 
 use std::str::FromStr;
 
+use anyhow::Result;
 use indextree::{Arena, NodeId};
 
 use crate::{
     common::{board::Board, r#move::Move, square::Square},
+    error::Error,
     event::Event,
 };
 
@@ -31,9 +33,7 @@ impl Dispatcher {
             Event::MakeMove(from, to, displayed_node) => {
                 // If move was illegal then new_node is None
                 let new_node = self.play(from, to, displayed_node, self.board);
-                if new_node.is_some() {
-                    let _ = self.sender.send(Event::NewNodeAppended(new_node));
-                }
+                let _ = self.sender.send(Event::NewNodeAppended(new_node));
             }
             Event::RequestBoard => {
                 let _ = self.sender.send(Event::SendBoard(self.board));
@@ -57,44 +57,42 @@ impl Dispatcher {
         to: Square,
         displayed_node: Option<NodeId>,
         mut board: Board,
-    ) -> Option<NodeId> {
+    ) -> Result<NodeId, Error> {
         let m = Move::new(from, to);
         if board.is_legal(m) {
             let new_node = match displayed_node {
-                None => {
-                    let id = self.move_tree.new_node(TreeNode::new(&m, board));
-                    Some(id)
-                }
+                // If displayed_node is none, tree has no root/board is in starting position
+                None => self.move_tree.new_node(TreeNode::new(&m, board)),
                 Some(node) => {
                     match node
                         .children(&self.move_tree)
                         .find(|n| self.move_tree[*n].get().notation == m.as_notation(&board))
                     {
-                        Some(child) => Some(child),
+                        Some(child) => child,
                         None => {
                             let id = self.move_tree.new_node(TreeNode::new(&m, board));
                             node.append(id, &mut self.move_tree);
-                            Some(id)
+                            id
                         }
                     }
                 }
             };
             self.board = board.update(m);
-            return new_node;
+            return Ok(new_node);
         }
-        None
+        Err(Error::IllegalMove)
     }
 
-    pub fn prev_move(&mut self, node: NodeId) -> Option<NodeId> {
+    pub fn prev_move(&mut self, node: NodeId) -> Result<NodeId, Error> {
         match node.ancestors(&self.move_tree).nth(1) {
             Some(prev_id) => {
                 self.board = Board::from_str(self.move_tree[prev_id].get().fen.as_str())
                     .expect("Failed to load board from prev_move fen");
-                Some(prev_id)
+                Ok(prev_id)
             }
             None => {
                 self.board = Board::default();
-                None
+                Err(Error::NoPrevMove)
             }
         }
     }
