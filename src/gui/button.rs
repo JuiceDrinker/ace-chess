@@ -98,6 +98,22 @@ impl Button {
         Ok(())
     }
 
+    pub fn create_next_move_button(on_click: fn(&mut Gui)) -> Button {
+        Button::new(
+            "next_move",
+            true,
+            graphics::Rect::new(
+                BOARD_PX_SIZE.0 + 200.0,
+                SIDE_SCREEN_PX_SIZE.1 - 210.0,
+                150.0,
+                50.0,
+            ),
+            graphics::Color::new(0.65, 0.44, 0.78, 1.0),
+            "->",
+            Align::Center,
+            on_click,
+        )
+    }
     pub fn create_prev_move_button(on_click: fn(&mut Gui)) -> Button {
         Button::new(
             "prev_move",
@@ -153,24 +169,6 @@ impl Button {
             (self.on_click)(gui)
         }
     }
-    // pub fn create_next_move_button() -> Self {
-    //     Button::new(
-    //         "next_move",
-    //         true,
-    //         graphics::Rect::new(
-    //             BOARD_PX_SIZE.0 + 200.0,
-    //             SIDE_SCREEN_PX_SIZE.1 - 210.0,
-    //             150.0,
-    //             50.0,
-    //         ),
-    //         graphics::Color::new(0.65, 0.44, 0.78, 1.0),
-    //         "->",
-    //         Align::Center,
-    //         Some(|gui| {
-    //             gui.chess.next_move();
-    //         }),
-    //     )
-    // }
 }
 
 impl fmt::Display for Button {

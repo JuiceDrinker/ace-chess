@@ -15,5 +15,6 @@ pub enum Event {
     GetLegalMoves(Square),
     SendLegalMoves(Vec<Square>),
     GetPrevMove(NodeId),
+    GetNextMove(Option<NodeId>),
     NewNodeAppended(Result<NodeId, Error>),
 }

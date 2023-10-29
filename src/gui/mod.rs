@@ -37,11 +37,16 @@ impl Gui {
             receiver: gui_channel,
             theme: Theme::default(),
         };
-        gui.buttons
-            .push(Button::create_prev_move_button(get_prev_move));
+        gui.init_buttons();
         gui
     }
 
+    pub fn init_buttons(&mut self) {
+        self.buttons = vec![
+            Button::create_prev_move_button(get_prev_move),
+            Button::create_next_move_button(get_next_move),
+        ];
+    }
     pub fn board(&self) -> Option<Board> {
         let _ = self.logic_channel.send(Event::RequestBoard);
         match self.receiver.recv().unwrap() {
@@ -269,6 +274,19 @@ impl event::EventHandler<GameError> for Gui {
             // KeyCode::R => self.reset(),
             KeyCode::NavigateBackward => get_prev_move(self),
             _ => {}
+        };
+    }
+}
+fn get_next_move(gui: &mut Gui) {
+    // Currently, if in starting position can't press next move
+    if let Some(node) = gui.displayed_node {
+        let _ = gui.logic_channel.send(Event::GetNextMove(Some(node)));
+        match gui.receiver.recv().unwrap() {
+            Event::NewDisplayNode(Ok(node)) => {
+                gui.displayed_node = Some(node);
+            }
+            Event::NewDisplayNode(Err(Error::NoNextMove)) => {}
+            _ => get_next_move(gui),
         };
     }
 }

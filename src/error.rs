@@ -8,4 +8,5 @@ pub enum Error {
     InvalidFen { fen: String },
     IllegalMove,
     NoPrevMove,
+    NoNextMove,
 }

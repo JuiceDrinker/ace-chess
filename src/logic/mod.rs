@@ -47,6 +47,10 @@ impl Dispatcher {
                 let new_node = self.prev_move(displayed_node);
                 let _ = self.sender.send(Event::NewDisplayNode(new_node));
             }
+            Event::GetNextMove(displayed_node) => {
+                let new_node = self.next_move(displayed_node);
+                let _ = self.sender.send(Event::NewDisplayNode(new_node));
+            }
             _ => {}
         }
     }
@@ -64,11 +68,18 @@ impl Dispatcher {
                 // If displayed_node is none, tree has no root/board is in starting position
                 None => self.move_tree.new_node(TreeNode::new(&m, board)),
                 Some(node) => {
+                    dbg!(node
+                        .children(&self.move_tree)
+                        .find(|n| self.move_tree[*n].get().notation == m.as_notation(&board)));
+                    dbg!("Do I ever get here?");
                     match node
                         .children(&self.move_tree)
                         .find(|n| self.move_tree[*n].get().notation == m.as_notation(&board))
                     {
-                        Some(child) => child,
+                        Some(child) => {
+                            dbg!("Do I ever get here?");
+                            child
+                        }
                         None => {
                             let id = self.move_tree.new_node(TreeNode::new(&m, board));
                             node.append(id, &mut self.move_tree);
@@ -93,6 +104,28 @@ impl Dispatcher {
             None => {
                 self.board = Board::default();
                 Err(Error::NoPrevMove)
+            }
+        }
+    }
+
+    pub fn next_move(&mut self, node: Option<NodeId>) -> Result<NodeId, Error> {
+        match node {
+            Some(n) => {
+                let node = &self.move_tree[n];
+                // TODO: Currently automatically always choses first child
+                // Give user option to choose one of the children
+                if let Some(child_id) = node.first_child() {
+                    let child_node = &self.move_tree[child_id];
+                    self.board = Board::from_str(child_node.get().fen.as_str())
+                        .expect("Failed to load board from next_move fen");
+                    Ok(child_id)
+                } else {
+                    Err(Error::NoNextMove)
+                }
+            }
+            None => {
+                println!("Starting position");
+                unimplemented!()
             }
         }
     }
