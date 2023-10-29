@@ -159,6 +159,7 @@ impl Gui {
     // It is the callers responsibility to ensure the coordinate is in the board.
     fn click_on_board(&mut self, x: f32, y: f32) {
         match self.selected_square {
+            // If square was previously clicked, make move from selected_square -> clicked square
             Some(s) => {
                 let _ = self.logic_channel.send(Event::MakeMove(
                     s,
@@ -170,28 +171,16 @@ impl Gui {
                     _ => None,
                 };
                 self.selected_square = None;
+                // If move was illegal then new_node is None
                 if new_node.is_some() {
                     self.displayed_node = new_node;
                 };
             }
+            // else prime square to be moved
             None => {
                 self.selected_square = Some(Square::from_screen(x, y));
             }
         };
-        // self.logic_channel.send(Event::SquareClicked(x, y));
-        // let current_square = Square::from_screen(x, y);
-        // match self.square_focused {
-        //     Some(square_selected) => self.chess.play(square_selected, current_square),
-        //     None => {
-        //         if self
-        //             .chess
-        //             .board
-        //             .color_on_is(current_square, self.chess.board.side_to_move())
-        //         {
-        //             self.chess.square_focused = Some(current_square);
-        //         }
-        //     }
-        // }
     }
 
     fn draw_side(&self, ctx: &mut Context) -> GameResult {

@@ -29,6 +29,7 @@ impl Dispatcher {
     pub fn dispatch(&mut self, event: Event) {
         match event {
             Event::MakeMove(from, to, displayed_node) => {
+                // If move was illegal then new_node is None
                 let new_node = self.play(from, to, displayed_node, self.board);
                 if new_node.is_some() {
                     let _ = self.sender.send(Event::NewNodeAppended(new_node));
@@ -85,7 +86,6 @@ impl Dispatcher {
     }
 
     pub fn prev_move(&mut self, node: NodeId) -> Option<NodeId> {
-        println!("Event gotten");
         match node.ancestors(&self.move_tree).nth(1) {
             Some(prev_id) => {
                 self.board = Board::from_str(self.move_tree[prev_id].get().fen.as_str())
