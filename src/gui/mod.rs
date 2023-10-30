@@ -2,6 +2,7 @@ mod button;
 pub mod config;
 mod theme;
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use ggez::event::{KeyCode, KeyMods, MouseButton};
@@ -49,8 +50,8 @@ impl Gui {
 
     pub fn init_buttons(&mut self) {
         self.buttons = vec![
-            Button::create_prev_move_button(get_prev_move),
-            Button::create_next_move_button(get_next_move),
+            Button::create_prev_move_button(Rc::new(RefCell::new(get_prev_move))),
+            Button::create_next_move_button(Rc::new(RefCell::new(get_next_move))),
         ];
     }
     pub fn board(&self) -> Option<Board> {
@@ -198,6 +199,7 @@ impl Gui {
         match self.receiver.recv().unwrap() {
             Event::NewDisplayNode(Ok(node)) => {
                 self.displayed_node = Some(node);
+                self.init_buttons();
             }
             _ => self.go_to_node(node_id),
         }
@@ -305,27 +307,19 @@ fn get_next_move(gui: &mut Gui) {
                 .into_iter()
                 .enumerate()
                 .for_each(|(idx, (node_id, notation))| {
-                    gui.buttons.push(Button::new(
-                        notation.clone(),
-                        true,
-                        graphics::Rect::new(
-                            BOARD_PX_SIZE.0 + 20.0,
-                            30.0 + (idx as f32 * 50.0),
-                            150.0,
-                            50.0,
-                        ),
-                        graphics::Color::new(0.65, 0.44, 0.78, 1.0),
-                        notation.clone(),
-                        Align::Center,
-                        |node_id| {
-                            gui.go_to_node(node_id);
-                        },
+                    gui.buttons.push(Button::create_next_move_option_button(
+                        notation,
+                        idx,
+                        Rc::new(RefCell::new(move |gui: &mut Gui| {
+                            Gui::go_to_node(gui, node_id)
+                        })),
                     ))
                 }),
             _ => get_next_move(gui),
         };
     }
 }
+
 fn get_prev_move(gui: &mut Gui) {
     if let Some(node) = gui.displayed_node {
         let _ = gui.logic_channel.send(Event::GetPrevMove(node));

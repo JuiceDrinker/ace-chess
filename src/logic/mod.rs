@@ -51,6 +51,11 @@ impl Dispatcher {
                 let new_node = self.next_move(displayed_node);
                 let _ = self.sender.send(Event::NextMoveResponse(new_node));
             }
+            Event::GoToNode(node) => {
+                self.board = Board::from_str(self.move_tree[node].get().fen.as_str())
+                    .expect("Failed to load board from node fen");
+                let _ = self.sender.send(Event::NewDisplayNode(Ok(node)));
+            }
             _ => {}
         }
     }
