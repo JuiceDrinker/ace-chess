@@ -9,8 +9,8 @@ use ggez::event::{KeyCode, KeyMods, MouseButton};
 use ggez::{event, graphics, Context, GameError};
 use indextree::NodeId;
 
+use self::button::on_click_handlers::{get_next_move, get_prev_move};
 use self::{button::Button, config::BOARD_CELL_PX_SIZE, theme::Theme};
-use crate::logic::NextMoveOptions;
 use crate::{common::board::Board, gui::config::BOARD_PX_SIZE, prelude::BOARD_SIZE, Event};
 use crate::{
     common::square::{Square, ALL_SQUARES},
@@ -191,16 +191,6 @@ impl Gui {
             }
         };
     }
-    pub fn go_to_node(&mut self, node_id: NodeId) {
-        let _ = self.logic_channel.send(Event::GoToNode(node_id));
-        match self.receiver.recv().unwrap() {
-            Event::NewDisplayNode(Ok(node)) => {
-                self.displayed_node = Some(node);
-                self.init_buttons();
-            }
-            _ => self.go_to_node(node_id),
-        }
-    }
 
     fn draw_side(&self, ctx: &mut Context) -> GameResult {
         for button in self.buttons.iter() {
@@ -287,45 +277,6 @@ impl event::EventHandler<GameError> for Gui {
             KeyCode::Right => get_next_move(self),
             KeyCode::Left => get_prev_move(self),
             _ => {}
-        };
-    }
-}
-fn get_next_move(gui: &mut Gui) {
-    let _ = gui
-        .logic_channel
-        .send(Event::GetNextMove(gui.displayed_node));
-    match gui.receiver.recv().unwrap() {
-        Event::NextMoveResponse(Ok(NextMoveOptions::Single(node))) => {
-            gui.displayed_node = Some(node);
-        }
-        Event::NextMoveResponse(Err(Error::NoNextMove)) => {}
-        Event::NextMoveResponse(Ok(NextMoveOptions::Multiple(options))) => options
-            .into_iter()
-            .enumerate()
-            .for_each(|(idx, (node_id, notation))| {
-                gui.buttons.push(Button::create_next_move_option_button(
-                    notation,
-                    idx,
-                    Rc::new(RefCell::new(move |gui: &mut Gui| {
-                        Gui::go_to_node(gui, node_id)
-                    })),
-                ))
-            }),
-        _ => get_next_move(gui),
-    };
-}
-
-fn get_prev_move(gui: &mut Gui) {
-    if let Some(node) = gui.displayed_node {
-        let _ = gui.logic_channel.send(Event::GetPrevMove(node));
-        match gui.receiver.recv().unwrap() {
-            Event::NewDisplayNode(Ok(node)) => {
-                gui.displayed_node = Some(node);
-            }
-            Event::NewDisplayNode(Err(Error::NoPrevMove)) => {
-                gui.displayed_node = None;
-            }
-            _ => get_prev_move(gui),
         };
     }
 }

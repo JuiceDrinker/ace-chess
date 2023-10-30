@@ -1,11 +1,10 @@
-use indextree::NodeId;
-
 use crate::{
     common::{board::Board, square::Square},
     error::Error,
     logic::NextMoveOptions,
 };
 use anyhow::Result;
+use indextree::NodeId;
 
 #[derive(Clone, Debug)]
 pub enum Event {

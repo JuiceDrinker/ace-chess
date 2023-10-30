@@ -1,6 +1,9 @@
-use std::{cell::RefCell, fmt, rc::Rc};
+pub mod on_click_handlers;
+use std::{fmt, rc::Rc};
 
 use ggez::{graphics, Context, GameResult};
+
+use self::on_click_handlers::{EventHandler, HandlerFunction};
 
 use super::{
     config::{BOARD_PX_SIZE, SIDE_SCREEN_PX_SIZE},
@@ -18,11 +21,6 @@ pub enum Align {
     Center,
 }
 
-#[derive(Clone)]
-pub struct EventHandlers {
-    simple_on_click: Option<Rc<RefCell<dyn Fn(&mut Gui)>>>,
-    update_display_node: Option<Rc<RefCell<dyn Fn(&mut Gui)>>>,
-}
 /// A struct of button for interact with the GUI.
 #[derive(Clone)]
 pub struct Button {
@@ -34,12 +32,11 @@ pub struct Button {
     color: graphics::Color,
     text: String,
     align: Align,
-    on_click: EventHandlers, // on_click: fn(&mut Gui),
+    on_click: EventHandler, // on_click: fn(&mut Gui),
 }
 
 impl Button {
     /// Create a new [`Button`].
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: String,
         enable: bool,
@@ -47,7 +44,7 @@ impl Button {
         color: graphics::Color,
         text: String,
         align: Align,
-        on_click: EventHandlers,
+        on_click: EventHandler,
     ) -> Self {
         Button {
             id,
@@ -103,7 +100,7 @@ impl Button {
         Ok(())
     }
 
-    pub fn create_next_move_button(on_click: Rc<RefCell<dyn Fn(&mut Gui)>>) -> Button {
+    pub fn create_next_move_button(on_click: Rc<HandlerFunction>) -> Button {
         Button::new(
             "next_move".to_owned(),
             true,
@@ -116,17 +113,14 @@ impl Button {
             graphics::Color::new(0.65, 0.44, 0.78, 1.0),
             "->".to_owned(),
             Align::Center,
-            EventHandlers {
-                simple_on_click: Some(on_click),
-                update_display_node: None,
-            },
+            EventHandler(on_click),
         )
     }
 
     pub fn create_next_move_option_button(
         notation: String,
         idx: usize,
-        on_click: Rc<RefCell<dyn Fn(&mut Gui)>>,
+        on_click: Rc<HandlerFunction>,
     ) -> Button {
         Button::new(
             notation.clone(),
@@ -140,13 +134,10 @@ impl Button {
             graphics::Color::new(0.65, 0.44, 0.78, 1.0),
             notation.clone(),
             Align::Center,
-            EventHandlers {
-                simple_on_click: None,
-                update_display_node: Some(on_click),
-            },
+            EventHandler(on_click),
         )
     }
-    pub fn create_prev_move_button(on_click: Rc<RefCell<dyn Fn(&mut Gui)>>) -> Button {
+    pub fn create_prev_move_button(on_click: Rc<HandlerFunction>) -> Button {
         Button::new(
             "prev_move".to_owned(),
             true,
@@ -159,10 +150,7 @@ impl Button {
             graphics::Color::new(0.65, 0.44, 0.78, 1.0),
             "<-".to_owned(),
             Align::Center,
-            EventHandlers {
-                simple_on_click: Some(on_click),
-                update_display_node: None,
-            },
+            EventHandler(on_click),
         )
     }
     /// Draw the text of the button.
@@ -201,16 +189,7 @@ impl Button {
     /// Call the func when the button is clicked.
     pub fn clicked(&self, gui: &mut Gui) {
         if self.enable {
-            if self.on_click.update_display_node.is_some() {
-                self.on_click
-                    .update_display_node
-                    .as_ref()
-                    .unwrap()
-                    .borrow_mut()(gui);
-            };
-            if self.on_click.simple_on_click.is_some() {
-                self.on_click.simple_on_click.as_ref().unwrap().borrow_mut()(gui);
-            }
+            self.on_click.0.borrow_mut()(gui);
         }
     }
 }
