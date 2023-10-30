@@ -12,12 +12,13 @@ pub struct TreeNode {
 }
 
 impl TreeNode {
-    pub fn new(r#move: &Move, board: Board) -> Self {
+    pub fn new(r#move: &Move, board: &Board) -> Self {
         TreeNode {
-            notation: r#move.as_notation(&board),
+            notation: r#move.as_notation(board),
             fen: board.clone().update(*r#move).to_string(),
         }
     }
+
     #[allow(dead_code)]
     pub fn pretty_print(node: indextree::NodeId, tree: &indextree::Arena<TreeNode>) {
         println!(

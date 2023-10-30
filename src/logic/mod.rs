@@ -1,9 +1,9 @@
-mod treenode;
+mod movetree;
 
 use std::str::FromStr;
 
 use anyhow::Result;
-use indextree::{Arena, NodeId};
+use indextree::NodeId;
 
 use crate::{
     common::{board::Board, r#move::Move, square::Square},
@@ -11,11 +11,11 @@ use crate::{
     event::Event,
 };
 
-use self::treenode::{Notation, TreeNode};
+use self::movetree::{treenode::Notation, MoveTree};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
-    move_tree: Arena<TreeNode>,
+    move_tree: MoveTree,
     board: Board,
     sender: crossbeam_channel::Sender<Event>,
 }
@@ -24,16 +24,8 @@ impl Dispatcher {
         Self {
             board,
             sender,
-            move_tree: Arena::new(),
+            move_tree: MoveTree::new(),
         }
-    }
-
-    pub fn get_tree_roots(&self) -> Vec<NodeId> {
-        self.move_tree
-            .iter()
-            .filter(|node| node.parent().is_none())
-            .map(|node| self.move_tree.get_node_id(node).unwrap())
-            .collect()
     }
 
     pub fn dispatch(&mut self, event: Event) {
@@ -60,7 +52,7 @@ impl Dispatcher {
                 let _ = self.sender.send(Event::NextMoveResponse(new_node));
             }
             Event::GoToNode(node) => {
-                self.board = Board::from_str(self.move_tree[node].get().fen.as_str())
+                self.board = Board::from_str(self.move_tree.get()[node].get().fen.as_str())
                     .expect("Failed to load board from node fen");
                 let _ = self.sender.send(Event::NewDisplayNode(Ok(node)));
             }
@@ -77,33 +69,7 @@ impl Dispatcher {
     ) -> Result<NodeId, Error> {
         let m = Move::new(from, to);
         if board.is_legal(m) {
-            let new_node = match displayed_node {
-                None => {
-                    // If displayed_node is none, we are in starting position
-                    // Look for roots, dont append if root with same move exists
-                    match self
-                        .get_tree_roots()
-                        .into_iter()
-                        .find(|n| self.move_tree[*n].get().notation == m.as_notation(&board))
-                    {
-                        Some(node) => node,
-                        None => self.move_tree.new_node(TreeNode::new(&m, board)),
-                    }
-                }
-                Some(node) => {
-                    match node
-                        .children(&self.move_tree)
-                        .find(|n| self.move_tree[*n].get().notation == m.as_notation(&board))
-                    {
-                        Some(child) => child,
-                        None => {
-                            let id = self.move_tree.new_node(TreeNode::new(&m, board));
-                            node.append(id, &mut self.move_tree);
-                            id
-                        }
-                    }
-                }
-            };
+            let new_node = self.move_tree.add_new_move(m, displayed_node, &board);
             self.board = board.update(m);
             return Ok(new_node);
         }
@@ -111,10 +77,10 @@ impl Dispatcher {
     }
 
     pub fn prev_move(&mut self, node: NodeId) -> Result<NodeId, Error> {
-        match node.ancestors(&self.move_tree).nth(1) {
+        match node.ancestors(self.move_tree.get()).nth(1) {
             // 0th value is node itself           ^
             Some(prev_id) => {
-                self.board = Board::from_str(self.move_tree[prev_id].get().fen.as_str())
+                self.board = Board::from_str(self.move_tree.get()[prev_id].get().fen.as_str())
                     .expect("Failed to load board from prev_move fen");
                 Ok(prev_id)
             }
@@ -127,36 +93,39 @@ impl Dispatcher {
 
     pub fn next_move(&mut self, node: Option<NodeId>) -> Result<NextMoveOptions, Error> {
         match node {
-            Some(n) => match n.children(&self.move_tree).count() {
+            Some(n) => match n.children(self.move_tree.get()).count() {
                 0 => Err(Error::NoNextMove),
                 1 => {
-                    let child_node_id = n.children(&self.move_tree).nth(0).unwrap();
-                    self.board = Board::from_str(self.move_tree[child_node_id].get().fen.as_str())
-                        .expect("Failed to load board from next_move fen");
+                    let child_node_id = n.children(self.move_tree.get()).nth(0).unwrap();
+                    self.board =
+                        Board::from_str(self.move_tree.get()[child_node_id].get().fen.as_str())
+                            .expect("Failed to load board from next_move fen");
                     Ok(NextMoveOptions::Single(child_node_id))
                 }
                 _ => {
                     let options = n
-                        .children(&self.move_tree)
-                        .map(|child| (child, self.move_tree[child].get().notation.clone()))
+                        .children(&self.move_tree.0)
+                        .map(|child| (child, self.move_tree.get()[child].get().notation.clone()))
                         .collect();
                     Ok(NextMoveOptions::Multiple(options))
                 }
             },
             None => {
-                let roots = self.get_tree_roots();
+                let roots = self.move_tree.get_tree_roots();
                 match roots.len() {
                     0 => Err(Error::NoNextMove),
                     1 => {
                         let root = roots[0];
-                        self.board = Board::from_str(self.move_tree[root].get().fen.as_str())
+                        self.board = Board::from_str(self.move_tree.get()[root].get().fen.as_str())
                             .expect("Failed to load board from next_move fen");
                         Ok(NextMoveOptions::Single(root))
                     }
                     _ => {
                         let options = roots
                             .into_iter()
-                            .map(|child| (child, self.move_tree[child].get().notation.clone()))
+                            .map(|child| {
+                                (child, self.move_tree.get()[child].get().notation.clone())
+                            })
                             .collect();
                         Ok(NextMoveOptions::Multiple(options))
                     }
