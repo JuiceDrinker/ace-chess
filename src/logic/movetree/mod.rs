@@ -2,8 +2,12 @@ pub mod treenode;
 
 use indextree::{Arena, NodeId};
 
-use crate::common::{board::Board, r#move::Move};
+use crate::{
+    common::{board::Board, r#move::Move},
+    error::Error,
+};
 
+use self::treenode::Fen;
 // Dont expose this eventually..
 pub use self::treenode::TreeNode;
 
@@ -30,6 +34,15 @@ impl MoveTree {
     pub fn get_fen_for_node(&self, id: NodeId) -> &str {
         self.0[id].get().fen.as_str()
     }
+
+    pub fn get_prev_move(&self, id: NodeId) -> Result<(NodeId, &str), Error> {
+        match id.ancestors(self.get()).nth(1) {
+            // 0th value is node itself    ^
+            Some(prev_id) => Ok((prev_id, self.get_fen_for_node(prev_id))),
+            None => Err(Error::NoPrevMove),
+        }
+    }
+
     pub fn add_new_move(
         &mut self,
         r#move: Move,

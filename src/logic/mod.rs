@@ -31,7 +31,6 @@ impl Dispatcher {
     pub fn dispatch(&mut self, event: Event) {
         match event {
             Event::MakeMove(from, to, displayed_node) => {
-                // If move was illegal then new_node is None
                 let new_node = self.play(from, to, displayed_node, self.board);
                 let _ = self.sender.send(Event::NewNodeAppended(new_node));
             }
@@ -76,17 +75,15 @@ impl Dispatcher {
         Err(Error::IllegalMove)
     }
 
-    pub fn prev_move(&mut self, node: NodeId) -> Result<NodeId, Error> {
-        match node.ancestors(self.move_tree.get()).nth(1) {
-            // 0th value is node itself           ^
-            Some(prev_id) => {
-                self.board = Board::from_str(self.move_tree.get_fen_for_node(prev_id))
-                    .expect("Failed to load board from prev_move fen");
-                Ok(prev_id)
+    pub fn prev_move(&mut self, node_id: NodeId) -> Result<NodeId, Error> {
+        match self.move_tree.get_prev_move(node_id) {
+            Ok((id, fen)) => {
+                self.board = Board::from_str(fen).expect("Failed to load board from prev_move fen");
+                Ok(id)
             }
-            None => {
+            Err(e) => {
                 self.board = Board::default();
-                Err(Error::NoPrevMove)
+                Err(e)
             }
         }
     }
