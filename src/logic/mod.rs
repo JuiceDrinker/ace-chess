@@ -3,7 +3,7 @@ mod treenode;
 use std::str::FromStr;
 
 use anyhow::Result;
-use indextree::{Arena, NodeId};
+use indextree::{Arena, Node, NodeId};
 
 use crate::{
     common::{board::Board, r#move::Move, square::Square},
@@ -26,6 +26,14 @@ impl Dispatcher {
             sender,
             move_tree: Arena::new(),
         }
+    }
+
+    pub fn get_tree_roots(&self) -> Vec<NodeId> {
+        self.move_tree
+            .iter()
+            .filter(|node| node.parent().is_none())
+            .map(|node| self.move_tree.get_node_id(node).unwrap())
+            .collect()
     }
 
     pub fn dispatch(&mut self, event: Event) {
@@ -110,31 +118,40 @@ impl Dispatcher {
 
     pub fn next_move(&mut self, node: Option<NodeId>) -> Result<NextMoveOptions, Error> {
         match node {
-            Some(n) => {
-                // TODO: Currently automatically always choses first child
-                // Give user option to choose one of the children
-                match n.children(&self.move_tree).count() {
+            Some(n) => match n.children(&self.move_tree).count() {
+                0 => Err(Error::NoNextMove),
+                1 => {
+                    let child_node_id = n.children(&self.move_tree).nth(0).unwrap();
+                    self.board = Board::from_str(self.move_tree[child_node_id].get().fen.as_str())
+                        .expect("Failed to load board from next_move fen");
+                    Ok(NextMoveOptions::Single(child_node_id))
+                }
+                _ => {
+                    let options = n
+                        .children(&self.move_tree)
+                        .map(|child| (child, self.move_tree[child].get().notation.clone()))
+                        .collect();
+                    Ok(NextMoveOptions::Multiple(options))
+                }
+            },
+            None => {
+                let roots = self.get_tree_roots();
+                match roots.len() {
                     0 => Err(Error::NoNextMove),
                     1 => {
-                        // let child_node_id = &self.move_tree[n].first_child().unwrap();
-                        let child_node_id = n.children(&self.move_tree).nth(0).unwrap();
-                        self.board =
-                            Board::from_str(self.move_tree[child_node_id].get().fen.as_str())
-                                .expect("Failed to load board from next_move fen");
-                        Ok(NextMoveOptions::Single(child_node_id))
+                        let root = roots[0];
+                        self.board = Board::from_str(self.move_tree[root].get().fen.as_str())
+                            .expect("Failed to load board from next_move fen");
+                        Ok(NextMoveOptions::Single(root))
                     }
                     _ => {
-                        let options = n
-                            .children(&self.move_tree)
+                        let options = roots
+                            .into_iter()
                             .map(|child| (child, self.move_tree[child].get().notation.clone()))
                             .collect();
                         Ok(NextMoveOptions::Multiple(options))
                     }
                 }
-            }
-            None => {
-                println!("Starting position");
-                unimplemented!()
             }
         }
     }

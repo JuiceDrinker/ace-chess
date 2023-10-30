@@ -295,29 +295,28 @@ impl event::EventHandler<GameError> for Gui {
     }
 }
 fn get_next_move(gui: &mut Gui) {
-    // Currently, if in starting position can't press next move
-    if let Some(node) = gui.displayed_node {
-        let _ = gui.logic_channel.send(Event::GetNextMove(Some(node)));
-        match gui.receiver.recv().unwrap() {
-            Event::NextMoveResponse(Ok(NextMoveOptions::Single(node))) => {
-                gui.displayed_node = Some(node);
-            }
-            Event::NextMoveResponse(Err(Error::NoNextMove)) => {}
-            Event::NextMoveResponse(Ok(NextMoveOptions::Multiple(options))) => options
-                .into_iter()
-                .enumerate()
-                .for_each(|(idx, (node_id, notation))| {
-                    gui.buttons.push(Button::create_next_move_option_button(
-                        notation,
-                        idx,
-                        Rc::new(RefCell::new(move |gui: &mut Gui| {
-                            Gui::go_to_node(gui, node_id)
-                        })),
-                    ))
-                }),
-            _ => get_next_move(gui),
-        };
-    }
+    let _ = gui
+        .logic_channel
+        .send(Event::GetNextMove(gui.displayed_node));
+    match gui.receiver.recv().unwrap() {
+        Event::NextMoveResponse(Ok(NextMoveOptions::Single(node))) => {
+            gui.displayed_node = Some(node);
+        }
+        Event::NextMoveResponse(Err(Error::NoNextMove)) => {}
+        Event::NextMoveResponse(Ok(NextMoveOptions::Multiple(options))) => options
+            .into_iter()
+            .enumerate()
+            .for_each(|(idx, (node_id, notation))| {
+                gui.buttons.push(Button::create_next_move_option_button(
+                    notation,
+                    idx,
+                    Rc::new(RefCell::new(move |gui: &mut Gui| {
+                        Gui::go_to_node(gui, node_id)
+                    })),
+                ))
+            }),
+        _ => get_next_move(gui),
+    };
 }
 
 fn get_prev_move(gui: &mut Gui) {

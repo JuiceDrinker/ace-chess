@@ -18,6 +18,7 @@ impl TreeNode {
             fen: board.clone().update(*r#move).to_string(),
         }
     }
+    #[allow(dead_code)]
     pub fn pretty_print(node: indextree::NodeId, tree: &indextree::Arena<TreeNode>) {
         println!(
             "{}",
