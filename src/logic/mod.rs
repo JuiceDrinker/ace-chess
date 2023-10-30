@@ -78,10 +78,18 @@ impl Dispatcher {
         let m = Move::new(from, to);
         if board.is_legal(m) {
             let new_node = match displayed_node {
-                // If displayed_node is none, tree has no root/board is in starting position
-                // TODO: If in starting position search for nodes with no parent and assume
-                // those are roots
-                None => self.move_tree.new_node(TreeNode::new(&m, board)),
+                None => {
+                    // If displayed_node is none, we are in starting position
+                    // Look for roots, dont append if root with same move exists
+                    match self
+                        .get_tree_roots()
+                        .into_iter()
+                        .find(|n| self.move_tree[*n].get().notation == m.as_notation(&board))
+                    {
+                        Some(node) => node,
+                        None => self.move_tree.new_node(TreeNode::new(&m, board)),
+                    }
+                }
                 Some(node) => {
                     match node
                         .children(&self.move_tree)
