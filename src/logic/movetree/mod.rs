@@ -27,6 +27,9 @@ impl MoveTree {
             .collect()
     }
 
+    pub fn get_fen_for_node(&self, id: NodeId) -> &str {
+        self.0[id].get().fen.as_str()
+    }
     pub fn add_new_move(
         &mut self,
         r#move: Move,

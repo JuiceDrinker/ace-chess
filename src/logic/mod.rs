@@ -80,7 +80,7 @@ impl Dispatcher {
         match node.ancestors(self.move_tree.get()).nth(1) {
             // 0th value is node itself           ^
             Some(prev_id) => {
-                self.board = Board::from_str(self.move_tree.get()[prev_id].get().fen.as_str())
+                self.board = Board::from_str(self.move_tree.get_fen_for_node(prev_id))
                     .expect("Failed to load board from prev_move fen");
                 Ok(prev_id)
             }
@@ -97,9 +97,8 @@ impl Dispatcher {
                 0 => Err(Error::NoNextMove),
                 1 => {
                     let child_node_id = n.children(self.move_tree.get()).nth(0).unwrap();
-                    self.board =
-                        Board::from_str(self.move_tree.get()[child_node_id].get().fen.as_str())
-                            .expect("Failed to load board from next_move fen");
+                    self.board = Board::from_str(self.move_tree.get_fen_for_node(child_node_id))
+                        .expect("Failed to load board from next_move fen");
                     Ok(NextMoveOptions::Single(child_node_id))
                 }
                 _ => {
@@ -116,7 +115,7 @@ impl Dispatcher {
                     0 => Err(Error::NoNextMove),
                     1 => {
                         let root = roots[0];
-                        self.board = Board::from_str(self.move_tree.get()[root].get().fen.as_str())
+                        self.board = Board::from_str(self.move_tree.get_fen_for_node(root))
                             .expect("Failed to load board from next_move fen");
                         Ok(NextMoveOptions::Single(root))
                     }

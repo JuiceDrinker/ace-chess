@@ -3,6 +3,7 @@ use serde::Serialize;
 use crate::common::{board::Board, r#move::Move};
 
 pub type Notation = String;
+// Type this as &str?
 pub type Fen = String;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize)]
@@ -18,7 +19,6 @@ impl TreeNode {
             fen: board.clone().update(*r#move).to_string(),
         }
     }
-
     #[allow(dead_code)]
     pub fn pretty_print(node: indextree::NodeId, tree: &indextree::Arena<TreeNode>) {
         println!(
