@@ -51,6 +51,7 @@ pub fn get_prev_move(gui: &mut Gui) {
             Event::NewDisplayNode(Ok(node)) => {
                 gui.displayed_node = Some(node);
             }
+            // No prev move means we are in starting position
             Event::NewDisplayNode(Err(Error::NoPrevMove)) => {
                 gui.displayed_node = None;
             }

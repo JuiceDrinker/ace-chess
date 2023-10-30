@@ -51,11 +51,11 @@ impl Gui {
             Button::create_next_move_button(Rc::new(RefCell::new(get_next_move))),
         ];
     }
-    pub fn board(&self) -> Option<Board> {
+    pub fn board(&self) -> Result<Board, Error> {
         let _ = self.logic_channel.send(Event::RequestBoard);
         match self.receiver.recv().unwrap() {
-            Event::SendBoard(board) => Some(board),
-            _ => None,
+            Event::SendBoard(board) => Ok(board),
+            _ => Err(Error::Comm),
         }
     }
 
@@ -131,7 +131,7 @@ impl Gui {
         let mut path;
         let mut image;
         for square in ALL_SQUARES {
-            if let Some(board) = self.board() {
+            if let Ok(board) = self.board() {
                 if let Some((piece, color)) = board.on(square) {
                     path = self.theme.piece_path[color.as_index()][piece.as_index()];
                     image = graphics::Image::new(ctx, path).expect("Image load error");

@@ -104,6 +104,7 @@ impl Dispatcher {
 
     pub fn prev_move(&mut self, node: NodeId) -> Result<NodeId, Error> {
         match node.ancestors(&self.move_tree).nth(1) {
+            // 0th value is node itself           ^
             Some(prev_id) => {
                 self.board = Board::from_str(self.move_tree[prev_id].get().fen.as_str())
                     .expect("Failed to load board from prev_move fen");
