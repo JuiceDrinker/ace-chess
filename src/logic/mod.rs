@@ -1,4 +1,4 @@
-mod movetree;
+pub mod movetree;
 
 use std::str::FromStr;
 
@@ -8,10 +8,10 @@ use indextree::NodeId;
 use crate::{
     common::{board::Board, r#move::Move, square::Square},
     error::Error,
-    event::Event,
+    event::{Event, NextMoveResponse},
 };
 
-use self::movetree::{treenode::Notation, MoveTree};
+use self::movetree::{MoveTree, NextMoveOptions};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
@@ -51,7 +51,7 @@ impl Dispatcher {
                 let _ = self.sender.send(Event::NextMoveResponse(new_node));
             }
             Event::GoToNode(node) => {
-                self.board = Board::from_str(self.move_tree.get()[node].get().fen.as_str())
+                self.board = Board::from_str(self.move_tree.get_tree()[node].get().fen.as_str())
                     .expect("Failed to load board from node fen");
                 let _ = self.sender.send(Event::NewDisplayNode(Ok(node)));
             }
@@ -88,51 +88,15 @@ impl Dispatcher {
         }
     }
 
-    pub fn next_move(&mut self, node: Option<NodeId>) -> Result<NextMoveOptions, Error> {
-        match node {
-            Some(n) => match n.children(self.move_tree.get()).count() {
-                0 => Err(Error::NoNextMove),
-                1 => {
-                    let child_node_id = n.children(self.move_tree.get()).nth(0).unwrap();
-                    self.board = Board::from_str(self.move_tree.get_fen_for_node(child_node_id))
-                        .expect("Failed to load board from next_move fen");
-                    Ok(NextMoveOptions::Single(child_node_id))
-                }
-                _ => {
-                    let options = n
-                        .children(&self.move_tree.0)
-                        .map(|child| (child, self.move_tree.get()[child].get().notation.clone()))
-                        .collect();
-                    Ok(NextMoveOptions::Multiple(options))
-                }
-            },
-            None => {
-                let roots = self.move_tree.get_tree_roots();
-                match roots.len() {
-                    0 => Err(Error::NoNextMove),
-                    1 => {
-                        let root = roots[0];
-                        self.board = Board::from_str(self.move_tree.get_fen_for_node(root))
-                            .expect("Failed to load board from next_move fen");
-                        Ok(NextMoveOptions::Single(root))
-                    }
-                    _ => {
-                        let options = roots
-                            .into_iter()
-                            .map(|child| {
-                                (child, self.move_tree.get()[child].get().notation.clone())
-                            })
-                            .collect();
-                        Ok(NextMoveOptions::Multiple(options))
-                    }
-                }
+    pub fn next_move(&mut self, node: Option<NodeId>) -> Result<NextMoveResponse, Error> {
+        match self.move_tree.get_next_move(node) {
+            Ok(NextMoveOptions::Single(id, fen)) => {
+                self.board =
+                    Board::from_str(&fen).expect("Failed to load board from next_move fen");
+                Ok(NextMoveResponse::Single(id))
             }
+            Ok(NextMoveOptions::Multiple(options)) => Ok(NextMoveResponse::Multiple(options)),
+            Err(e) => Err(e),
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub enum NextMoveOptions {
-    Single(NodeId),
-    Multiple(Vec<(NodeId, Notation)>),
 }

@@ -2,7 +2,11 @@ use std::{cell::RefCell, rc::Rc};
 
 use indextree::NodeId;
 
-use crate::{error::Error, event::Event, gui::Gui, logic::NextMoveOptions};
+use crate::{
+    error::Error,
+    event::{Event, NextMoveResponse},
+    gui::Gui,
+};
 
 use super::Button;
 
@@ -16,11 +20,11 @@ pub fn get_next_move(gui: &mut Gui) {
         .logic_channel
         .send(Event::GetNextMove(gui.displayed_node));
     match gui.receiver.recv().unwrap() {
-        Event::NextMoveResponse(Ok(NextMoveOptions::Single(node))) => {
+        Event::NextMoveResponse(Ok(NextMoveResponse::Single(node))) => {
             gui.displayed_node = Some(node);
         }
         Event::NextMoveResponse(Err(Error::NoNextMove)) => {}
-        Event::NextMoveResponse(Ok(NextMoveOptions::Multiple(options))) => options
+        Event::NextMoveResponse(Ok(NextMoveResponse::Multiple(options))) => options
             .into_iter()
             .enumerate()
             .for_each(|(idx, (node_id, notation))| {

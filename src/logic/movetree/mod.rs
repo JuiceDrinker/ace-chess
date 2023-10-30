@@ -7,7 +7,7 @@ use crate::{
     error::Error,
 };
 
-use self::treenode::Fen;
+use self::treenode::Notation;
 // Dont expose this eventually..
 pub use self::treenode::TreeNode;
 
@@ -19,7 +19,7 @@ impl MoveTree {
         MoveTree(Arena::new())
     }
 
-    pub fn get(&self) -> &Arena<TreeNode> {
+    pub fn get_tree(&self) -> &Arena<TreeNode> {
         &self.0
     }
 
@@ -36,10 +36,52 @@ impl MoveTree {
     }
 
     pub fn get_prev_move(&self, id: NodeId) -> Result<(NodeId, &str), Error> {
-        match id.ancestors(self.get()).nth(1) {
+        match id.ancestors(self.get_tree()).nth(1) {
             // 0th value is node itself    ^
             Some(prev_id) => Ok((prev_id, self.get_fen_for_node(prev_id))),
             None => Err(Error::NoPrevMove),
+        }
+    }
+
+    pub fn get_next_move(&self, node: Option<NodeId>) -> Result<NextMoveOptions, Error> {
+        match node {
+            Some(n) => match n.children(self.get_tree()).count() {
+                0 => Err(Error::NoNextMove),
+                1 => {
+                    let child_node_id = n.children(self.get_tree()).nth(0).unwrap();
+                    Ok(NextMoveOptions::Single(
+                        child_node_id,
+                        self.get_fen_for_node(child_node_id).to_string(),
+                    ))
+                }
+                _ => {
+                    let options = n
+                        .children(self.get_tree())
+                        .map(|child| (child, self.get_tree()[child].get().notation.clone()))
+                        .collect();
+                    Ok(NextMoveOptions::Multiple(options))
+                }
+            },
+            None => {
+                let roots = self.get_tree_roots();
+                match roots.len() {
+                    0 => Err(Error::NoNextMove),
+                    1 => {
+                        let root = roots[0];
+                        Ok(NextMoveOptions::Single(
+                            root,
+                            self.get_fen_for_node(root).to_string(),
+                        ))
+                    }
+                    _ => {
+                        let options = roots
+                            .into_iter()
+                            .map(|child| (child, self.get_tree()[child].get().notation.clone()))
+                            .collect();
+                        Ok(NextMoveOptions::Multiple(options))
+                    }
+                }
+            }
         }
     }
 
@@ -56,7 +98,7 @@ impl MoveTree {
                 match self
                     .get_tree_roots()
                     .into_iter()
-                    .find(|n| self.get()[*n].get().notation == r#move.as_notation(board))
+                    .find(|n| self.get_tree()[*n].get().notation == r#move.as_notation(board))
                 {
                     Some(node) => node,
                     None => self.0.new_node(TreeNode::new(&r#move, board)),
@@ -64,8 +106,8 @@ impl MoveTree {
             }
             Some(node) => {
                 match node
-                    .children(self.get())
-                    .find(|n| self.get()[*n].get().notation == r#move.as_notation(board))
+                    .children(self.get_tree())
+                    .find(|n| self.get_tree()[*n].get().notation == r#move.as_notation(board))
                 {
                     Some(child) => child,
                     None => {
@@ -77,4 +119,10 @@ impl MoveTree {
             }
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum NextMoveOptions {
+    Single(NodeId, String),
+    Multiple(Vec<(NodeId, Notation)>),
 }

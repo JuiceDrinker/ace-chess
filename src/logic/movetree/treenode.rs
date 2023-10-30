@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::common::{board::Board, r#move::Move};
 
-pub type Notation = String;
+pub(crate) type Notation = String;
 // Type this as &str?
 pub type Fen = String;
 

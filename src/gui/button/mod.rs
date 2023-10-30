@@ -21,7 +21,7 @@ pub enum Align {
     Center,
 }
 
-/// A struct of button for interact with the GUI.
+/// A struct of button to interact with the GUI.
 #[derive(Clone)]
 pub struct Button {
     /// The id is not unique, it's just a name to identify it.
@@ -32,7 +32,7 @@ pub struct Button {
     color: graphics::Color,
     text: String,
     align: Align,
-    on_click: EventHandler, // on_click: fn(&mut Gui),
+    on_click: EventHandler,
 }
 
 impl Button {
@@ -58,23 +58,23 @@ impl Button {
         }
     }
 
-    /// Enable the button.
-    pub fn enable(&mut self) {
-        self.enable = true;
-    }
+    // /// Enable the button.
+    // pub fn enable(&mut self) {
+    //     self.enable = true;
+    // }
+    //
+    // /// Disable the button.
+    // pub fn disable(&mut self) {
+    //     self.enable = false;
+    // }
+    //
+    // /// Draw the image at the given path rather than a rectangle.
+    // pub fn set_image(&mut self, path: Option<&'static str>) -> Self {
+    //     self.image_path = path;
+    //     self.clone()
+    // }
 
-    /// Disable the button.
-    pub fn disable(&mut self) {
-        self.enable = false;
-    }
-
-    /// Draw the image at the given path rather than a rectangle.
-    pub fn set_image(&mut self, path: Option<&'static str>) -> Self {
-        self.image_path = path;
-        self.clone()
-    }
-
-    /// Verify if a coordinate is in the button.
+    /// Verify if a coordinate is inside the button.
     pub fn contains(&self, x: f32, y: f32) -> bool {
         self.rect.contains([x, y])
     }
