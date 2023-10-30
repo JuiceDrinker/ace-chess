@@ -287,9 +287,9 @@ impl event::EventHandler<GameError> for Gui {
     ) {
         match keycode {
             KeyCode::Escape => event::quit(ctx),
-            // KeyCode::NavigateForward => self.chess.next_move(),
+            KeyCode::Right => get_next_move(self),
             // KeyCode::R => self.reset(),
-            KeyCode::NavigateBackward => get_prev_move(self),
+            KeyCode::Left => get_prev_move(self),
             _ => {}
         };
     }
