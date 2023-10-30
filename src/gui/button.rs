@@ -20,8 +20,8 @@ pub enum Align {
 
 #[derive(Clone)]
 pub struct EventHandlers {
-    simple_on_click: Option<Rc<RefCell<dyn FnMut(&mut Gui)>>>,
-    update_display_node: Option<Rc<RefCell<dyn FnMut(&mut Gui)>>>,
+    simple_on_click: Option<Rc<RefCell<dyn Fn(&mut Gui)>>>,
+    update_display_node: Option<Rc<RefCell<dyn Fn(&mut Gui)>>>,
 }
 /// A struct of button for interact with the GUI.
 #[derive(Clone)]
@@ -103,7 +103,7 @@ impl Button {
         Ok(())
     }
 
-    pub fn create_next_move_button(on_click: Rc<RefCell<dyn FnMut(&mut Gui)>>) -> Button {
+    pub fn create_next_move_button(on_click: Rc<RefCell<dyn Fn(&mut Gui)>>) -> Button {
         Button::new(
             "next_move".to_owned(),
             true,
@@ -126,7 +126,7 @@ impl Button {
     pub fn create_next_move_option_button(
         notation: String,
         idx: usize,
-        on_click: Rc<RefCell<dyn FnMut(&mut Gui)>>,
+        on_click: Rc<RefCell<dyn Fn(&mut Gui)>>,
     ) -> Button {
         Button::new(
             notation.clone(),
@@ -146,7 +146,7 @@ impl Button {
             },
         )
     }
-    pub fn create_prev_move_button(on_click: Rc<RefCell<dyn FnMut(&mut Gui)>>) -> Button {
+    pub fn create_prev_move_button(on_click: Rc<RefCell<dyn Fn(&mut Gui)>>) -> Button {
         Button::new(
             "prev_move".to_owned(),
             true,
