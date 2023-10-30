@@ -3,7 +3,7 @@ mod treenode;
 use std::str::FromStr;
 
 use anyhow::Result;
-use indextree::{Arena, Node, NodeId};
+use indextree::{Arena, NodeId};
 
 use crate::{
     common::{board::Board, r#move::Move, square::Square},

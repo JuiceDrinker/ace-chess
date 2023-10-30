@@ -9,7 +9,6 @@ use ggez::event::{KeyCode, KeyMods, MouseButton};
 use ggez::{event, graphics, Context, GameError};
 use indextree::NodeId;
 
-use self::button::Align;
 use self::{button::Button, config::BOARD_CELL_PX_SIZE, theme::Theme};
 use crate::logic::NextMoveOptions;
 use crate::{common::board::Board, gui::config::BOARD_PX_SIZE, prelude::BOARD_SIZE, Event};
@@ -25,7 +24,6 @@ pub struct Gui {
     theme: Theme,
     buttons: Vec<Button>,
     displayed_node: Option<NodeId>,
-    node_to_request: Option<NodeId>,
     logic_channel: crossbeam_channel::Sender<Event>,
     receiver: crossbeam_channel::Receiver<Event>,
 }
@@ -37,7 +35,6 @@ impl Gui {
     ) -> Self {
         let mut gui = Self {
             buttons: vec![],
-            node_to_request: None,
             displayed_node: None,
             selected_square: None,
             logic_channel,
@@ -102,9 +99,9 @@ impl Gui {
             if let Some(square) = self.selected_square {
                 let _ = self.logic_channel.send(Event::GetLegalMoves(square));
                 match self.receiver.recv().unwrap() {
-                    Event::SendLegalMoves(dest) => {
-                        for d in dest {
-                            let (x, y) = d.as_screen_coords();
+                    Event::SendLegalMoves(moves) => {
+                        for m in moves {
+                            let (x, y) = m.as_screen_coords();
                             let mesh = graphics::MeshBuilder::new()
                                 .rectangle(
                                     graphics::DrawMode::fill(),
@@ -288,7 +285,6 @@ impl event::EventHandler<GameError> for Gui {
         match keycode {
             KeyCode::Escape => event::quit(ctx),
             KeyCode::Right => get_next_move(self),
-            // KeyCode::R => self.reset(),
             KeyCode::Left => get_prev_move(self),
             _ => {}
         };
