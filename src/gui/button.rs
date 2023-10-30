@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{cell::RefCell, fmt, rc::Rc};
 
 use ggez::{graphics, Context, GameResult};
 
@@ -18,31 +18,36 @@ pub enum Align {
     Center,
 }
 
+#[derive(Clone)]
+pub struct EventHandlers {
+    simple_on_click: Option<Rc<RefCell<dyn FnMut(&mut Gui)>>>,
+    update_display_node: Option<Rc<RefCell<dyn FnMut(&mut Gui)>>>,
+}
 /// A struct of button for interact with the GUI.
 #[derive(Clone)]
 pub struct Button {
     /// The id is not unique, it's just a name to identify it.
-    pub id: &'static str,
+    pub id: String,
     enable: bool,
     rect: graphics::Rect,
     image_path: Option<&'static str>,
     color: graphics::Color,
-    text: &'static str,
+    text: String,
     align: Align,
-    on_click: fn(&mut Gui),
+    on_click: EventHandlers, // on_click: fn(&mut Gui),
 }
 
 impl Button {
     /// Create a new [`Button`].
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        id: &'static str,
+        id: String,
         enable: bool,
         rect: graphics::Rect,
         color: graphics::Color,
-        text: &'static str,
+        text: String,
         align: Align,
-        on_click: fn(&mut Gui),
+        on_click: EventHandlers,
     ) -> Self {
         Button {
             id,
@@ -98,9 +103,9 @@ impl Button {
         Ok(())
     }
 
-    pub fn create_next_move_button(on_click: fn(&mut Gui)) -> Button {
+    pub fn create_next_move_button(on_click: Rc<RefCell<dyn FnMut(&mut Gui)>>) -> Button {
         Button::new(
-            "next_move",
+            "next_move".to_owned(),
             true,
             graphics::Rect::new(
                 BOARD_PX_SIZE.0 + 200.0,
@@ -109,14 +114,41 @@ impl Button {
                 50.0,
             ),
             graphics::Color::new(0.65, 0.44, 0.78, 1.0),
-            "->",
+            "->".to_owned(),
             Align::Center,
-            on_click,
+            EventHandlers {
+                simple_on_click: Some(on_click),
+                update_display_node: None,
+            },
         )
     }
-    pub fn create_prev_move_button(on_click: fn(&mut Gui)) -> Button {
+
+    pub fn create_next_move_option_button(
+        notation: String,
+        idx: usize,
+        on_click: Rc<RefCell<dyn FnMut(&mut Gui)>>,
+    ) -> Button {
         Button::new(
-            "prev_move",
+            notation.clone(),
+            true,
+            graphics::Rect::new(
+                BOARD_PX_SIZE.0 + 20.0,
+                30.0 + (idx as f32 * 50.0),
+                150.0,
+                50.0,
+            ),
+            graphics::Color::new(0.65, 0.44, 0.78, 1.0),
+            notation.clone(),
+            Align::Center,
+            EventHandlers {
+                simple_on_click: None,
+                update_display_node: Some(on_click),
+            },
+        )
+    }
+    pub fn create_prev_move_button(on_click: Rc<RefCell<dyn FnMut(&mut Gui)>>) -> Button {
+        Button::new(
+            "prev_move".to_owned(),
             true,
             graphics::Rect::new(
                 BOARD_PX_SIZE.0 + 20.0,
@@ -125,15 +157,18 @@ impl Button {
                 50.0,
             ),
             graphics::Color::new(0.65, 0.44, 0.78, 1.0),
-            "<-",
+            "<-".to_owned(),
             Align::Center,
-            on_click,
+            EventHandlers {
+                simple_on_click: Some(on_click),
+                update_display_node: None,
+            },
         )
     }
     /// Draw the text of the button.
     fn draw_text(&self, ctx: &mut Context, font_path: &str, font_scale: f32) -> GameResult {
         let font = graphics::Font::new(ctx, font_path)?;
-        let text = graphics::Text::new((self.text, font, font_scale));
+        let text = graphics::Text::new((self.text.clone(), font, font_scale));
         let dest_point = match self.align {
             Align::Left => [self.rect.x, self.rect.y],
             Align::Right => [
@@ -166,7 +201,16 @@ impl Button {
     /// Call the func when the button is clicked.
     pub fn clicked(&self, gui: &mut Gui) {
         if self.enable {
-            (self.on_click)(gui)
+            if self.on_click.update_display_node.is_some() {
+                self.on_click
+                    .update_display_node
+                    .as_ref()
+                    .unwrap()
+                    .borrow_mut()(gui);
+            };
+            if self.on_click.simple_on_click.is_some() {
+                self.on_click.simple_on_click.as_ref().unwrap().borrow_mut()(gui);
+            }
         }
     }
 }

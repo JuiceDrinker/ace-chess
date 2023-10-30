@@ -11,7 +11,7 @@ use crate::{
     event::Event,
 };
 
-use self::treenode::TreeNode;
+use self::treenode::{Notation, TreeNode};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
@@ -49,7 +49,12 @@ impl Dispatcher {
             }
             Event::GetNextMove(displayed_node) => {
                 let new_node = self.next_move(displayed_node);
-                let _ = self.sender.send(Event::NewDisplayNode(new_node));
+                let _ = self.sender.send(Event::NextMoveResponse(new_node));
+            }
+            Event::GoToNode(node) => {
+                self.board = Board::from_str(self.move_tree[node].get().fen.as_str())
+                    .expect("Failed to load board from node fen");
+                let _ = self.sender.send(Event::NewDisplayNode(Ok(node)));
             }
             _ => {}
         }
@@ -66,20 +71,15 @@ impl Dispatcher {
         if board.is_legal(m) {
             let new_node = match displayed_node {
                 // If displayed_node is none, tree has no root/board is in starting position
+                // TODO: If in starting position search for nodes with no parent and assume
+                // those are roots
                 None => self.move_tree.new_node(TreeNode::new(&m, board)),
                 Some(node) => {
-                    dbg!(node
-                        .children(&self.move_tree)
-                        .find(|n| self.move_tree[*n].get().notation == m.as_notation(&board)));
-                    dbg!("Do I ever get here?");
                     match node
                         .children(&self.move_tree)
                         .find(|n| self.move_tree[*n].get().notation == m.as_notation(&board))
                     {
-                        Some(child) => {
-                            dbg!("Do I ever get here?");
-                            child
-                        }
+                        Some(child) => child,
                         None => {
                             let id = self.move_tree.new_node(TreeNode::new(&m, board));
                             node.append(id, &mut self.move_tree);
@@ -108,19 +108,28 @@ impl Dispatcher {
         }
     }
 
-    pub fn next_move(&mut self, node: Option<NodeId>) -> Result<NodeId, Error> {
+    pub fn next_move(&mut self, node: Option<NodeId>) -> Result<NextMoveOptions, Error> {
         match node {
             Some(n) => {
-                let node = &self.move_tree[n];
                 // TODO: Currently automatically always choses first child
                 // Give user option to choose one of the children
-                if let Some(child_id) = node.first_child() {
-                    let child_node = &self.move_tree[child_id];
-                    self.board = Board::from_str(child_node.get().fen.as_str())
-                        .expect("Failed to load board from next_move fen");
-                    Ok(child_id)
-                } else {
-                    Err(Error::NoNextMove)
+                match n.children(&self.move_tree).count() {
+                    0 => Err(Error::NoNextMove),
+                    1 => {
+                        // let child_node_id = &self.move_tree[n].first_child().unwrap();
+                        let child_node_id = n.children(&self.move_tree).nth(0).unwrap();
+                        self.board =
+                            Board::from_str(self.move_tree[child_node_id].get().fen.as_str())
+                                .expect("Failed to load board from next_move fen");
+                        Ok(NextMoveOptions::Single(child_node_id))
+                    }
+                    _ => {
+                        let options = n
+                            .children(&self.move_tree)
+                            .map(|child| (child, self.move_tree[child].get().notation.clone()))
+                            .collect();
+                        Ok(NextMoveOptions::Multiple(options))
+                    }
                 }
             }
             None => {
@@ -129,4 +138,10 @@ impl Dispatcher {
             }
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum NextMoveOptions {
+    Single(NodeId),
+    Multiple(Vec<(NodeId, Notation)>),
 }

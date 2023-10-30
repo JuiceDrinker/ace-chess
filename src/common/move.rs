@@ -63,7 +63,6 @@ impl Move {
                 }
             }
         }
-        dbg!(&move_text);
         move_text
     }
 }
