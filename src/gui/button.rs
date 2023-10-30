@@ -22,12 +22,12 @@ pub enum Align {
 #[derive(Clone)]
 pub struct Button {
     /// The id is not unique, it's just a name to identify it.
-    pub id: &'static str,
+    pub id: String,
     enable: bool,
     rect: graphics::Rect,
     image_path: Option<&'static str>,
     color: graphics::Color,
-    text: &'static str,
+    text: String,
     align: Align,
     on_click: fn(&mut Gui),
 }
@@ -36,11 +36,11 @@ impl Button {
     /// Create a new [`Button`].
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        id: &'static str,
+        id: String,
         enable: bool,
         rect: graphics::Rect,
         color: graphics::Color,
-        text: &'static str,
+        text: String,
         align: Align,
         on_click: fn(&mut Gui),
     ) -> Self {
@@ -100,7 +100,7 @@ impl Button {
 
     pub fn create_next_move_button(on_click: fn(&mut Gui)) -> Button {
         Button::new(
-            "next_move",
+            "next_move".to_owned(),
             true,
             graphics::Rect::new(
                 BOARD_PX_SIZE.0 + 200.0,
@@ -109,14 +109,14 @@ impl Button {
                 50.0,
             ),
             graphics::Color::new(0.65, 0.44, 0.78, 1.0),
-            "->",
+            "->".to_owned(),
             Align::Center,
             on_click,
         )
     }
     pub fn create_prev_move_button(on_click: fn(&mut Gui)) -> Button {
         Button::new(
-            "prev_move",
+            "prev_move".to_owned(),
             true,
             graphics::Rect::new(
                 BOARD_PX_SIZE.0 + 20.0,
@@ -125,7 +125,7 @@ impl Button {
                 50.0,
             ),
             graphics::Color::new(0.65, 0.44, 0.78, 1.0),
-            "<-",
+            "<-".to_owned(),
             Align::Center,
             on_click,
         )
@@ -133,7 +133,7 @@ impl Button {
     /// Draw the text of the button.
     fn draw_text(&self, ctx: &mut Context, font_path: &str, font_scale: f32) -> GameResult {
         let font = graphics::Font::new(ctx, font_path)?;
-        let text = graphics::Text::new((self.text, font, font_scale));
+        let text = graphics::Text::new((self.text.clone(), font, font_scale));
         let dest_point = match self.align {
             Align::Left => [self.rect.x, self.rect.y],
             Align::Right => [

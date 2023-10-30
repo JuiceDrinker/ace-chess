@@ -11,6 +11,8 @@ crossbeam-channel = "0.5.8"
 ggez = "0.7.0"
 indextree = "4.6.0"
 serde = "1.0.190"
+serde_indextree = "0.2.0"
+serde_json = "1.0.107"
 
 [profile.release]
 debug = true

@@ -2,11 +2,15 @@ mod button;
 pub mod config;
 mod theme;
 
+use std::rc::Rc;
+
 use ggez::event::{KeyCode, KeyMods, MouseButton};
 use ggez::{event, graphics, Context, GameError};
 use indextree::NodeId;
 
+use self::button::Align;
 use self::{button::Button, config::BOARD_CELL_PX_SIZE, theme::Theme};
+use crate::logic::NextMoveOptions;
 use crate::{common::board::Board, gui::config::BOARD_PX_SIZE, prelude::BOARD_SIZE, Event};
 use crate::{
     common::square::{Square, ALL_SQUARES},
@@ -20,6 +24,7 @@ pub struct Gui {
     theme: Theme,
     buttons: Vec<Button>,
     displayed_node: Option<NodeId>,
+    node_to_request: Option<NodeId>,
     logic_channel: crossbeam_channel::Sender<Event>,
     receiver: crossbeam_channel::Receiver<Event>,
 }
@@ -31,6 +36,7 @@ impl Gui {
     ) -> Self {
         let mut gui = Self {
             buttons: vec![],
+            node_to_request: None,
             displayed_node: None,
             selected_square: None,
             logic_channel,
@@ -187,6 +193,15 @@ impl Gui {
             }
         };
     }
+    pub fn go_to_node(&mut self, node_id: NodeId) {
+        let _ = self.logic_channel.send(Event::GoToNode(node_id));
+        match self.receiver.recv().unwrap() {
+            Event::NewDisplayNode(Ok(node)) => {
+                self.displayed_node = Some(node);
+            }
+            _ => self.go_to_node(node_id),
+        }
+    }
 
     fn draw_side(&self, ctx: &mut Context) -> GameResult {
         for button in self.buttons.iter() {
@@ -282,10 +297,31 @@ fn get_next_move(gui: &mut Gui) {
     if let Some(node) = gui.displayed_node {
         let _ = gui.logic_channel.send(Event::GetNextMove(Some(node)));
         match gui.receiver.recv().unwrap() {
-            Event::NewDisplayNode(Ok(node)) => {
+            Event::NextMoveResponse(Ok(NextMoveOptions::Single(node))) => {
                 gui.displayed_node = Some(node);
             }
-            Event::NewDisplayNode(Err(Error::NoNextMove)) => {}
+            Event::NextMoveResponse(Err(Error::NoNextMove)) => {}
+            Event::NextMoveResponse(Ok(NextMoveOptions::Multiple(options))) => options
+                .into_iter()
+                .enumerate()
+                .for_each(|(idx, (node_id, notation))| {
+                    gui.buttons.push(Button::new(
+                        notation.clone(),
+                        true,
+                        graphics::Rect::new(
+                            BOARD_PX_SIZE.0 + 20.0,
+                            30.0 + (idx as f32 * 50.0),
+                            150.0,
+                            50.0,
+                        ),
+                        graphics::Color::new(0.65, 0.44, 0.78, 1.0),
+                        notation.clone(),
+                        Align::Center,
+                        |node_id| {
+                            gui.go_to_node(node_id);
+                        },
+                    ))
+                }),
             _ => get_next_move(gui),
         };
     }
