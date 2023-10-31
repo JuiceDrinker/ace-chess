@@ -71,6 +71,8 @@ impl Dispatcher {
             let new_node = self.move_tree.add_new_move(m, displayed_node, &board);
             self.board = board.update(m);
             return Ok(new_node);
+        } else if self.board.color_on_is(to, self.board.side_to_move()) {
+            return Err(Error::OwnPieceOnSquare);
         }
         Err(Error::IllegalMove)
     }

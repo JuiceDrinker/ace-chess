@@ -179,6 +179,9 @@ impl Gui {
                         self.selected_square = None;
                         self.displayed_node = Some(node);
                     }
+                    Event::NewNodeAppended(Err(Error::OwnPieceOnSquare)) => {
+                        self.selected_square = Some(Square::from_screen(x, y));
+                    }
                     Event::NewNodeAppended(Err(Error::IllegalMove)) => {
                         self.selected_square = None;
                     }

@@ -10,4 +10,5 @@ pub enum Error {
     IllegalMove,
     NoPrevMove,
     NoNextMove,
+    OwnPieceOnSquare,
 }
