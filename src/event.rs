@@ -1,23 +1,22 @@
 use crate::{
     common::{board::Board, square::Square},
-    error::Error,
     logic::movetree::treenode::Notation,
+    prelude::Result,
 };
-use anyhow::Result;
 use indextree::NodeId;
 
 #[derive(Clone, Debug)]
 pub enum Event {
-    NextMoveResponse(Result<NextMoveResponse, Error>),
-    NewDisplayNode(Result<NodeId, Error>),
+    NextMoveResponse(Result<NextMoveResponse>),
+    NewDisplayNode(Result<NodeId>),
     MakeMove(Square, Square, Option<NodeId>),
-    RequestBoard,
+    GetBoard,
     SendBoard(Board),
     GetLegalMoves(Square),
     SendLegalMoves(Vec<Square>),
     GetPrevMove(NodeId),
     GetNextMove(Option<NodeId>),
-    NewNodeAppended(Result<NodeId, Error>),
+    NewNodeAppended(Result<NodeId>),
     GoToNode(NodeId),
 }
 

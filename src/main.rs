@@ -4,6 +4,7 @@ use common::{board::Board, square::Square};
 use event::Event;
 use gui::{config, Gui};
 use logic::Dispatcher;
+use prelude::Result;
 
 mod common;
 mod error;
@@ -12,7 +13,7 @@ mod gui;
 mod logic;
 mod prelude;
 
-fn main() -> Result<(), anyhow::Error> {
+fn main() -> Result<()> {
     let (gui_sender, logic_recv) = crossbeam_channel::bounded::<Event>(10);
     let (logic_sender, gui_recv) = crossbeam_channel::bounded::<Event>(10);
 

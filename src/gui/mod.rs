@@ -52,7 +52,7 @@ impl Gui {
         ];
     }
     pub fn board(&self) -> Result<Board, Error> {
-        let _ = self.logic_channel.send(Event::RequestBoard);
+        let _ = self.logic_channel.send(Event::GetBoard);
         match self.receiver.recv().unwrap() {
             Event::SendBoard(board) => Ok(board),
             _ => Err(Error::Comm),

@@ -875,7 +875,7 @@ impl FromStr for Board {
     /// From Forsyth-Edwards Notation (FEN).
     ///
     /// <https://www.chess.com/terms/fen-chess>
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
+    fn from_str(value: &str) -> Result<Self> {
         let mut cur_rank = Rank::Eighth;
         let mut cur_file = File::A;
         let mut board = Board::new();

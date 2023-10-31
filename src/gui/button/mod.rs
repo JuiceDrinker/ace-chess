@@ -74,7 +74,7 @@ impl Button {
     //     self.clone()
     // }
 
-    /// Verify if a coordinate is inside the button.
+    /// Verify if a coordinate is in the button.
     pub fn contains(&self, x: f32, y: f32) -> bool {
         self.rect.contains([x, y])
     }

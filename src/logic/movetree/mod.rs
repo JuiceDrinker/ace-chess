@@ -1,3 +1,4 @@
+mod pgn;
 pub mod treenode;
 
 use indextree::{Arena, NodeId};
@@ -5,6 +6,7 @@ use indextree::{Arena, NodeId};
 use crate::{
     common::{board::Board, r#move::Move},
     error::Error,
+    prelude::Result,
 };
 
 use self::treenode::Notation;
@@ -35,7 +37,7 @@ impl MoveTree {
         self.0[id].get().fen.as_str()
     }
 
-    pub fn get_prev_move(&self, id: NodeId) -> Result<(NodeId, &str), Error> {
+    pub fn get_prev_move(&self, id: NodeId) -> Result<(NodeId, &str)> {
         match id.ancestors(self.get_tree()).nth(1) {
             // 0th value is node itself    ^
             Some(prev_id) => Ok((prev_id, self.get_fen_for_node(prev_id))),
@@ -43,7 +45,7 @@ impl MoveTree {
         }
     }
 
-    pub fn get_next_move(&self, node: Option<NodeId>) -> Result<NextMoveOptions, Error> {
+    pub fn get_next_move(&self, node: Option<NodeId>) -> Result<NextMoveOptions> {
         match node {
             Some(n) => match n.children(self.get_tree()).count() {
                 0 => Err(Error::NoNextMove),

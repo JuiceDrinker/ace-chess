@@ -2,13 +2,13 @@ pub mod movetree;
 
 use std::str::FromStr;
 
-use anyhow::Result;
 use indextree::NodeId;
 
 use crate::{
     common::{board::Board, r#move::Move, square::Square},
     error::Error,
     event::{Event, NextMoveResponse},
+    prelude::Result,
 };
 
 use self::movetree::{MoveTree, NextMoveOptions};
@@ -34,7 +34,7 @@ impl Dispatcher {
                 let new_node = self.play(from, to, displayed_node, self.board);
                 let _ = self.sender.send(Event::NewNodeAppended(new_node));
             }
-            Event::RequestBoard => {
+            Event::GetBoard => {
                 let _ = self.sender.send(Event::SendBoard(self.board));
             }
             Event::GetLegalMoves(square) => {
@@ -65,7 +65,7 @@ impl Dispatcher {
         to: Square,
         displayed_node: Option<NodeId>,
         mut board: Board,
-    ) -> Result<NodeId, Error> {
+    ) -> Result<NodeId> {
         let m = Move::new(from, to);
         if board.is_legal(m) {
             let new_node = self.move_tree.add_new_move(m, displayed_node, &board);
@@ -77,7 +77,7 @@ impl Dispatcher {
         Err(Error::IllegalMove)
     }
 
-    pub fn prev_move(&mut self, node_id: NodeId) -> Result<NodeId, Error> {
+    pub fn prev_move(&mut self, node_id: NodeId) -> Result<NodeId> {
         match self.move_tree.get_prev_move(node_id) {
             Ok((id, fen)) => {
                 self.board = Board::from_str(fen).expect("Failed to load board from prev_move fen");
@@ -90,7 +90,7 @@ impl Dispatcher {
         }
     }
 
-    pub fn next_move(&mut self, node: Option<NodeId>) -> Result<NextMoveResponse, Error> {
+    pub fn next_move(&mut self, node: Option<NodeId>) -> Result<NextMoveResponse> {
         match self.move_tree.get_next_move(node) {
             Ok(NextMoveOptions::Single(id, fen)) => {
                 self.board =
