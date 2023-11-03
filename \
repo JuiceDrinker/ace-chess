@@ -1,0 +1,8 @@
+use nom::bytes::complete::tag;
+
+fn parse_move_text(input: &str) -> nom::IResult<&str, &str> {
+    let (input, idk) = tag("1.")(input)?;
+
+    return Ok((idk, input));
+}
+mod test {}

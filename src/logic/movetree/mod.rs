@@ -13,6 +13,12 @@ use self::treenode::Notation;
 // Dont expose this eventually..
 pub use self::treenode::TreeNode;
 
+#[derive(Clone, Debug)]
+pub enum NextMoveOptions {
+    Single(NodeId, String),
+    Multiple(Vec<(NodeId, Notation)>),
+}
+
 #[derive(Debug, Clone)]
 pub struct MoveTree(pub Arena<TreeNode>);
 
@@ -121,10 +127,4 @@ impl MoveTree {
             }
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub enum NextMoveOptions {
-    Single(NodeId, String),
-    Multiple(Vec<(NodeId, Notation)>),
 }

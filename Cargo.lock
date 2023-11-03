@@ -26,6 +26,7 @@ dependencies = [
  "crossbeam-channel",
  "ggez",
  "indextree",
+ "nom",
  "serde",
  "serde_indextree",
  "serde_json",
