@@ -6,7 +6,7 @@ use nom::{
     character::complete::{digit1, multispace1, u8},
     combinator::{opt, recognize},
     error::Error,
-    sequence::{delimited, tuple, Tuple},
+    sequence::{delimited, pair, tuple, Tuple},
     IResult, Parser,
 };
 
@@ -18,7 +18,7 @@ struct ParsedMove<'a> {
 }
 
 impl<'a> ParsedMove<'a> {
-    fn new(r#move: &'a str) -> ParsedMove<'a> {
+    fn new(r#move: &'a str, comment: Option<&'a str>) -> ParsedMove<'a> {
         ParsedMove {
             r#move,
             variations: None,
@@ -107,41 +107,61 @@ fn parse_move_number_white(input: &str) -> IResult<&str, (u8, &str)> {
     (u8, tag(".")).parse(input)
 }
 
-fn parse_move_white(input: &str) -> IResult<&str, ParsedMove> {
+fn parse_move_white(input: &str) -> IResult<&str, &str> {
     let (rest, _) = parse_move_number_white(input.trim_start())?;
     let (rest, r#move) = parse_move_text.parse(rest)?;
 
-    Ok((rest, ParsedMove::new(r#move)))
+    Ok((rest, r#move))
 }
 
 fn parse_comments(input: &str) -> IResult<&str, &str> {
-    delimited(tag("{"), take_until("}"), tag("}")).parse(input)
+    dbg!(input);
+    let (rest, comment) =
+        delimited(tag("{"), take_until("}"), tag("}")).parse(input.trim_start())?;
+    Ok((rest, comment))
 }
-fn parse_move_black(input: &str) -> IResult<&str, ParsedMove> {
+fn parse_move_black(input: &str) -> IResult<&str, &str> {
     let (rest, _) = alt((multispace1, parse_move_number_black)).parse(input)?;
     let (rest, r#move) = take_while1(|c: char| c.is_alphanumeric()).parse(rest)?;
-    Ok((rest, ParsedMove::new(r#move)))
+    Ok((rest, r#move))
 }
 
-fn parse_moves(input: &str) -> IResult<&str, ParsedMove> {
+fn parse_moves(input: &str) -> IResult<&str, &str> {
     alt((parse_move_white, parse_move_black))(input)
+}
+fn parse_move_with_comment(input: &str) -> IResult<&str, Option<&str>> {
+    let (rest, (parsed_move, comment)) = pair(parse_moves, opt(parse_comments))(input)?;
+    dbg!((parsed_move, comment));
+
+    Ok((parsed_move, comment))
 }
 
 fn parse_pgn(input: &str) -> Result<Vec<ParsedMove>, nom::Err<Error<&str>>> {
-    let mut moves = vec![];
-    let mut left_to_parse = input;
-    while !left_to_parse.is_empty() {
-        let (rest, parsed_move) = parse_moves(left_to_parse)?;
-        moves.push(parsed_move);
-        left_to_parse = rest;
-    }
-
-    Ok(moves)
+    //     let mut moves = vec![];
+    //     let mut left_to_parse = input;
+    //     while !left_to_parse.is_empty() {
+    //         let (rest, parsed_move) = parse_moves(left_to_parse)?;
+    //         moves.push(parsed_move);
+    //         left_to_parse = rest;
+    //     }
+    //
+    //     Ok(moves)
+    todo!();
 }
 #[cfg(test)]
 mod test {
     use super::*;
+    #[test]
+    fn move_with_comment() {
+        let (a, b) = parse_move_with_comment("1.e4 {This is a comment}").unwrap();
+        dbg!((a, b));
+    }
 
+    #[test]
+    fn move_without_comment() {
+        let (a, b) = parse_move_with_comment("1.e4 ").unwrap();
+        dbg!((a, b));
+    }
     #[test]
     #[should_panic]
     fn panics_on_rank_outside_bounds() {
@@ -221,49 +241,19 @@ mod test {
     #[test]
     fn parses_whites_move() {
         let res = parse_move_white("1.e4").unwrap();
-        assert_eq!(
-            res,
-            (
-                "",
-                ParsedMove {
-                    r#move: "e4",
-                    variations: None,
-                    comment: None,
-                }
-            )
-        );
+        assert_eq!(res, ("", "e4"));
     }
 
     #[test]
     fn parses_black_move() {
         let res = parse_move_black(" e5").unwrap();
-        assert_eq!(
-            res,
-            (
-                "",
-                ParsedMove {
-                    r#move: "e5",
-                    variations: None,
-                    comment: None,
-                }
-            )
-        );
+        assert_eq!(res, ("", "e5"));
     }
 
     #[test]
     fn parses_blacks_move_with_move_number() {
         let res = parse_move_black("2... e5").unwrap();
-        assert_eq!(
-            res,
-            (
-                "",
-                ParsedMove {
-                    r#move: "e5",
-                    variations: None,
-                    comment: None,
-                }
-            )
-        );
+        assert_eq!(res, ("", "e5"));
     }
 
     #[test]
