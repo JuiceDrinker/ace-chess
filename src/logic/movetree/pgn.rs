@@ -1,15 +1,13 @@
 #![allow(dead_code)]
+
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_until, take_while1},
-    character::{
-        complete::{digit1, multispace1, u8},
-        is_alphabetic,
-    },
-    combinator::{map_res, opt, recognize, verify},
-    error::{self, Error, ErrorKind},
+    bytes::complete::{tag, take_until, take_while1, take_while_m_n},
+    character::complete::{digit1, multispace1, u8},
+    combinator::{opt, recognize},
+    error::Error,
     sequence::{delimited, tuple, Tuple},
-    Err, IResult, Parser,
+    IResult, Parser,
 };
 
 #[derive(Debug, PartialEq)]
@@ -30,21 +28,19 @@ impl<'a> ParsedMove<'a> {
 }
 
 fn parse_rank(input: &str) -> IResult<&str, &str> {
-    dbg!("rank", input);
-    dbg!("HEUIFJWEIFJIOWE");
-    digit1.parse(input)
+    take_while_m_n(1, 1, |c: char| matches!(c, '1'..='8')).parse(input)
 }
 
 fn parse_file(input: &str) -> IResult<&str, &str> {
-    dbg!("file", input);
-    // is_alphabetic(input)
-    let (rest, file) = take_while1(|c: char| matches!(c, 'a'..='h')).parse(input)?;
-
-    Ok((rest, file))
+    take_while_m_n(1, 1, |c: char| matches!(c, 'a'..='h')).parse(input)
 }
+
 fn parse_piece(input: &str) -> IResult<&str, &str> {
-    dbg!("piece", input);
-    take_while1(|c: char| matches!(c, 'N' | 'B' | 'R' | 'Q' | 'K')).parse(input)
+    take_while_m_n(1, 1, |c: char| matches!(c, 'N' | 'B' | 'R' | 'Q' | 'K')).parse(input)
+}
+
+fn parse_promotion_piece(input: &str) -> IResult<&str, &str> {
+    take_while_m_n(1, 1, |c: char| matches!(c, 'N' | 'B' | 'R' | 'Q')).parse(input)
 }
 
 fn parse_disambiguated_capture(input: &str) -> IResult<&str, &str> {
@@ -67,21 +63,53 @@ fn parse_disambugated_move(input: &str) -> IResult<&str, &str> {
     recognize(tuple((parse_piece, parse_file, parse_file, parse_rank))).parse(input)
 }
 
-// Nd5, Nbd5, Nbxd5, Nxd5
+fn parse_basic_pawn_move(input: &str) -> IResult<&str, &str> {
+    recognize(tuple((parse_file, parse_rank))).parse(input)
+}
+
+fn parse_pawn_capture(input: &str) -> IResult<&str, &str> {
+    recognize(tuple((parse_file, tag("x"), parse_rank))).parse(input)
+}
+fn parse_pawn_promotion(input: &str) -> IResult<&str, &str> {
+    recognize(tuple((
+        parse_file,
+        opt(tag("x")),
+        parse_rank,
+        tag("="),
+        parse_promotion_piece,
+    )))
+    .parse(input)
+}
+
+fn parse_pawn_move(input: &str) -> IResult<&str, &str> {
+    alt((
+        parse_basic_pawn_move,
+        parse_pawn_capture,
+        parse_pawn_capture,
+    ))
+    .parse(input)
+}
+
 fn parse_move_text(input: &str) -> IResult<&str, &str> {
+    alt((parse_pawn_move, parse_piece_move, tag("0-0"), tag("0-0-0"))).parse(input)
+}
+
+fn parse_piece_move(input: &str) -> IResult<&str, &str> {
+    // Nd5, Nbd5, Nbxd5, Nxd5
     alt((parse_basic, parse_disambugated_move, parse_full_capture)).parse(input)
 }
+
 fn parse_move_number_black(input: &str) -> IResult<&str, &str> {
-    let (rest, (move_number, tag)) = (u8, tag("... ")).parse(input)?;
-    Ok((rest, tag))
+    recognize(tuple((u8, tag("... ")))).parse(input)
 }
+
 fn parse_move_number_white(input: &str) -> IResult<&str, (u8, &str)> {
     (u8, tag(".")).parse(input)
 }
 
 fn parse_move_white(input: &str) -> IResult<&str, ParsedMove> {
     let (rest, _) = parse_move_number_white(input.trim_start())?;
-    let (rest, r#move) = take_while1(|c: char| c.is_alphanumeric()).parse(rest)?;
+    let (rest, r#move) = parse_move_text.parse(rest)?;
 
     Ok((rest, ParsedMove::new(r#move)))
 }
@@ -95,15 +123,15 @@ fn parse_move_black(input: &str) -> IResult<&str, ParsedMove> {
     Ok((rest, ParsedMove::new(r#move)))
 }
 
-fn parse_pgn(input: &str) -> IResult<&str, ParsedMove> {
+fn parse_moves(input: &str) -> IResult<&str, ParsedMove> {
     alt((parse_move_white, parse_move_black))(input)
 }
 
-fn parse_game(input: &str) -> Result<Vec<ParsedMove>, nom::Err<Error<&str>>> {
+fn parse_pgn(input: &str) -> Result<Vec<ParsedMove>, nom::Err<Error<&str>>> {
     let mut moves = vec![];
     let mut left_to_parse = input;
     while !left_to_parse.is_empty() {
-        let (rest, parsed_move) = parse_pgn(left_to_parse)?;
+        let (rest, parsed_move) = parse_moves(left_to_parse)?;
         moves.push(parsed_move);
         left_to_parse = rest;
     }
@@ -113,6 +141,28 @@ fn parse_game(input: &str) -> Result<Vec<ParsedMove>, nom::Err<Error<&str>>> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    #[should_panic]
+    fn panics_on_rank_outside_bounds() {
+        parse_rank("9").unwrap();
+    }
+    #[test]
+    fn parses_rank() {
+        let (_, move_text) = parse_rank("7").unwrap();
+        assert_eq!(move_text, "7");
+    }
+    #[test]
+    fn parses_file() {
+        let (_, move_text) = parse_file("b").unwrap();
+        assert_eq!(move_text, "b");
+    }
+
+    #[test]
+    #[should_panic]
+    fn panics_on_invalid_file() {
+        parse_file("y").unwrap();
+    }
 
     #[test]
     fn parses_move_text() {
@@ -219,12 +269,12 @@ mod test {
     #[test]
     #[should_panic]
     fn should_panic_for_invalid_pgn() {
-        parse_game("1 .e4").unwrap();
+        parse_pgn("1 .e4").unwrap();
     }
 
     #[test]
     fn parses_first_move() {
-        let res = parse_game("1.e4 e5 2.d4 d5").unwrap();
+        let res = parse_pgn("1.e4 e5 2.d4 d5").unwrap();
         assert_eq!(res.len(), 4);
         assert_eq!(
             res[0],
