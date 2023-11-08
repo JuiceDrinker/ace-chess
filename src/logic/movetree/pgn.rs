@@ -2,14 +2,18 @@
 use nom::{
     branch::alt,
     bytes::complete::{take_until, take_while_m_n},
-    character::complete::{multispace1, u8},
+    character::complete::{multispace1, space0, u8},
     combinator::{opt, recognize},
     sequence::{delimited, tuple, Tuple},
     IResult, Parser,
 };
-use nom_supreme::{error::ErrorTree, tag::complete::tag, ParserExt};
+use nom_supreme::{
+    error::{BaseErrorKind, ErrorTree, Expectation},
+    tag::complete::tag,
+    ParserExt,
+};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ParsedMove<'a> {
     r#move: &'a str,
     variations: Option<Vec<ParsedMove<'a>>>,
@@ -104,11 +108,15 @@ fn parse_move_text(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
 
 fn parse_piece_move(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
     // Nd5, Nbd5, Nbxd5, Nxd5
-    alt((parse_basic, parse_disambugated_move, parse_full_capture)).parse(input)
+    parse_basic
+        .or(parse_disambugated_move)
+        .or(parse_full_capture)
+        .parse(input)
+    // alt((parse_basic, parse_disambugated_move, parse_full_capture)).parse(input)
 }
 
 fn parse_move_number_black(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
-    recognize(tuple((u8, tag("... "))))
+    recognize(tuple((u8, tag("..."), space0.opt())))
         .context("Parsing blacks move number")
         .parse(input)
 }
@@ -119,7 +127,7 @@ fn parse_move_number_white(input: &str) -> IResult<&str, (u8, &str), ErrorTree<&
 
 fn parse_move_white(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
     let (rest, _) = parse_move_number_white(input.trim_start())?;
-    let (rest, r#move) = parse_move_text.parse(rest)?;
+    let (rest, r#move) = parse_move_text.parse(rest.trim_start())?;
 
     Ok((rest, r#move))
 }
@@ -130,9 +138,10 @@ fn parse_comments(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
     Ok((rest, comment))
 }
 fn parse_move_black(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
-    let (rest, _) = opt(alt((multispace1, parse_move_number_black)))
+    // parse_move_black.opt().
+    let (rest, _) = opt(parse_move_number_black)
         .context("Discard move number for black")
-        .parse(input)?;
+        .parse(input.trim_start())?;
     let (rest, r#move) = parse_move_text.parse(rest)?;
     Ok((rest, r#move))
 }
@@ -143,28 +152,63 @@ fn parse_move(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
         .parse(input)
 }
 
-fn parse_variations(input: &str) -> IResult<&str, Vec<ParsedMove>, ErrorTree<&str>> {
-    let (_, moves) = delimited(tag("("), take_until(")"), tag(")"))(input)?;
+fn parse_variations(
+    input: &str,
+    parenthese_depth: Option<u8>,
+) -> IResult<&str, (Vec<ParsedMove>, u8), ErrorTree<&str>> {
+    let (moves, _) = tag("(")(input)?;
 
+    let mut parentheses = parenthese_depth.or(Some(1));
     dbg!(moves);
     let mut moves_left_to_parse = moves;
     let mut variations = vec![];
 
     while !moves_left_to_parse.is_empty() {
-        let (rest, parsed_move) = parse_move_with_comment(moves_left_to_parse)?;
-        variations.push(parsed_move);
-        moves_left_to_parse = rest;
+        dbg!(moves_left_to_parse);
+        if let Ok((rest, parsed_move)) = parse_move_with_comment(moves_left_to_parse) {
+            variations.push(parsed_move);
+            moves_left_to_parse = rest;
+        } else if moves_left_to_parse.trim_start().starts_with('(') {
+            parentheses = parenthese_depth.map(|n| n.saturating_add(1));
+            let (rest, (nested, _)) = parse_variations(moves_left_to_parse, parentheses)?;
+            moves_left_to_parse = rest;
+            variations.last().cloned().unwrap().variations = Some(nested);
+        } else if let Ok((rest, _)) =
+            tuple((opt(multispace1::<&str, ErrorTree<&str>>), tag(")"))).parse(moves_left_to_parse)
+        {
+            if parentheses == Some(0) && !rest.is_empty() {
+                return Err(nom::Err::Error(ErrorTree::Base {
+                    location: "Nested variation",
+                    kind: BaseErrorKind::Expected(Expectation::Char('[')),
+                }));
+            }
+            parentheses = parentheses.map(|n| n.saturating_sub(1));
+            moves_left_to_parse = rest;
+        }
     }
-    Ok((moves_left_to_parse, variations))
+
+    if parentheses >= Some(0) {
+        Ok((moves_left_to_parse, (variations, parentheses.unwrap())))
+    } else {
+        Err(nom::Err::Error(ErrorTree::Base {
+            location: "Nested variation",
+            kind: BaseErrorKind::Expected(Expectation::Char('[')),
+        }))
+    }
 }
 
 fn parse_move_with_comment(input: &str) -> IResult<&str, ParsedMove, ErrorTree<&str>> {
     let (rest, parsed_move) = parse_move(input)?;
     let (rest, _) = opt(multispace1).parse(rest)?;
     let (rest, comment) = opt(parse_comments).parse(rest)?;
-    let (rest, variations) = opt(parse_variations).parse(rest)?;
-
-    Ok((rest, ParsedMove::new(parsed_move, comment, variations)))
+    if let Ok((rest, (variations, _))) = parse_variations(rest, None) {
+        Ok((
+            rest,
+            ParsedMove::new(parsed_move, comment, Some(variations)),
+        ))
+    } else {
+        Ok((rest, ParsedMove::new(parsed_move, comment, None)))
+    }
 }
 
 pub fn parse_pgn(input: &str) -> IResult<&str, Vec<ParsedMove>, ErrorTree<&str>> {
@@ -182,10 +226,11 @@ pub fn parse_pgn(input: &str) -> IResult<&str, Vec<ParsedMove>, ErrorTree<&str>>
 #[cfg(test)]
 mod test {
     use super::*;
+    use pretty_assertions::assert_eq;
 
-    // #[test]
+    #[test]
     fn parses_variations() {
-        let (_, parsed) = parse_variations("(1... e5 2.d4 )").unwrap();
+        let (_, (parsed, _)) = parse_variations("(1... e5 2.d4 )", None).unwrap();
         assert_eq!(
             parsed,
             vec![
@@ -205,7 +250,7 @@ mod test {
 
     #[test]
     fn parses_nested_variations() {
-        let (_, parsed) = parse_variations("(1... e5 2.d4 (2. Nf3) )").unwrap();
+        let (_, (parsed, _)) = parse_variations("(1... e5 2.d4 (2.Nf3) )", None).unwrap();
         assert_eq!(
             parsed,
             vec![
@@ -217,39 +262,49 @@ mod test {
                 ParsedMove {
                     r#move: "d4",
                     comment: None,
-                    variations: None
+                    variations: Some(vec![ParsedMove {
+                        r#move: "Nf3",
+                        comment: None,
+                        variations: None
+                    }])
                 }
             ]
         )
     }
 
-    // #[test]
+    #[test]
     fn game_with_nested_comment_and_variations() {
         let (_, parsed) =
-            parse_pgn("1.e4 {This is a comment}(1... e5 {This is a comment too} 2.d4 (2. Nf3) )")
+            parse_pgn("1.e4 {This is a comment}(1. d4 {This is a comment too} 2.e5 (2...Nf6) )")
                 .unwrap();
-        // assert_eq!(parsed.len(), 1);
-        // assert_eq!(
-        //     parsed,
-        //     vec![ParsedMove {
-        //         r#move: "e4",
-        //         comment: Some("This is a comment"),
-        //         variations: Some(vec![
-        //             ParsedMove {
-        //                 r#move: "e5",
-        //                 comment: None,
-        //                 variations: None
-        //             },
-        //             ParsedMove {
-        //                 r#move: "d4",
-        //                 comment: None,
-        //                 variations: None
-        //             }
-        //         ])
-        //     }]
-        // );
+        dbg!(&parsed);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(
+            parsed,
+            vec![ParsedMove {
+                r#move: "e4",
+                comment: Some("This is a comment"),
+                variations: Some(vec![
+                    ParsedMove {
+                        r#move: "d4",
+                        comment: Some("This is a comment too"),
+                        variations: Some(vec![ParsedMove {
+                            r#move: "Nf6",
+                            comment: None,
+                            variations: None
+                        }])
+                    },
+                    ParsedMove {
+                        r#move: "e5",
+                        comment: None,
+                        variations: None
+                    }
+                ])
+            }]
+        );
         dbg!(parsed);
     }
+
     #[test]
     fn game_with_comment_and_variations() {
         let (_, parsed) = parse_pgn("1.e4 {This is a comment}(1... e5 2.d4 )").unwrap();
