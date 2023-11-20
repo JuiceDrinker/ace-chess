@@ -1,5 +1,6 @@
 #![allow(dead_code)]
-use std::collections::{HashMap, HashSet};
+
+use std::collections::{HashMap, HashSet, VecDeque};
 
 mod parsers;
 use nom::{IResult, Parser};
@@ -9,21 +10,24 @@ use crate::prelude::Result;
 
 use self::parsers::{comment, move_number, move_text};
 
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
+enum Edge {
+    Variation(Key),
+    Stem(Key),
+}
 type Key = usize;
 type MoveText<'a> = &'a str;
-type Edges = HashSet<Key>;
+type Edges = HashSet<Edge>;
 type MoveTextAndComment<'a> = (MoveText<'a>, Option<Comment<'a>>);
 type AdjacencyList<'a> = HashMap<Key, (MoveTextAndComment<'a>, Edges)>;
 type Comment<'a> = &'a str;
 
 #[derive(Default, Debug, Clone)]
 struct PgnParser<'a> {
-    // seen: HashSet<Key>,
-    variation_stack: Vec<Key>,
+    variation_stack: VecDeque<Key>,
     graph: AdjacencyList<'a>,
     current_key: usize,
     prev_node: Option<Key>,
-    depth: usize,
 }
 
 impl<'a> PgnParser<'a> {
@@ -35,12 +39,12 @@ impl<'a> PgnParser<'a> {
         self.variation_stack.is_empty()
     }
 
-    fn pop(&mut self) {
-        self.variation_stack.pop();
+    fn pop(&mut self) -> Option<Key> {
+        self.variation_stack.pop_back()
     }
 
     fn push_variation_stack(&mut self, key: Key) {
-        self.variation_stack.push(key)
+        self.variation_stack.push_back(key)
     }
 
     fn add_node(&mut self, move_text: MoveText<'a>, comment: Option<Comment<'a>>) {
@@ -79,7 +83,7 @@ impl<'a> PgnParser<'a> {
 
     fn get_variation_creator(&self) -> Option<&Key> {
         // peek
-        self.variation_stack.last()
+        self.variation_stack.back()
     }
 
     // Base case
@@ -100,7 +104,11 @@ impl<'a> PgnParser<'a> {
             left_to_parse = after_start_of_variation;
         } else if let Some(after_end_of_variation) = left_to_parse.trim_start().strip_prefix(')') {
             // When we get done with a variation we need to pop off the stack
-            new_parser.pop();
+            let popped = new_parser.pop();
+            // If we pop the last variation stack item, set the previous item to prev_node
+            // if new_parser.is_variation_stack_empty() {
+            new_parser.prev_node = popped;
+            // }
 
             // left_to_parse = after_end_of_variation;
             // Run the rest of the input
@@ -108,19 +116,47 @@ impl<'a> PgnParser<'a> {
         }
         let (rest, _) = move_number.opt().parse(left_to_parse.trim_start())?;
         let (rest, move_text) = move_text.parse(rest.trim_start())?;
-
         let (rest, comment) = comment.opt().parse(rest.trim_start())?;
 
-        new_parser.add_node(move_text, comment);
+        // if !new_parser.is_variation_stack_empty()
+        match (new_parser.get_variation_creator(), parser.prev_node()) {
+            // Root of tree just add_node
+            (None, None) => new_parser.add_node(move_text, comment),
 
-        if let Some(variation_creator_key) = new_parser.get_variation_creator() {
-            new_parser
-                .graph
-                .entry(*variation_creator_key)
-                .and_modify(|(_, keys)| {
-                    keys.insert(new_parser.current_key);
-                });
-        };
+            // Was a previous node but no variation
+            // So just add and update prev_node to point to this one
+            (None, Some(prev_node_key)) => {
+                new_parser.add_node(move_text, comment);
+                new_parser
+                    .graph
+                    .entry(*prev_node_key)
+                    .and_modify(|(_, keys)| {
+                        keys.insert(Edge::Stem(new_parser.current_key));
+                    });
+            }
+            (Some(_), None) => panic!("Can't have no root but variation creator"),
+            // We are in midst of a variation
+            (Some(variation_creator_key), Some(prev_node_key)) => {
+                // First move of variation
+                if variation_creator_key == prev_node_key {
+                    new_parser
+                        .graph
+                        .entry(*variation_creator_key)
+                        .and_modify(|(_, keys)| {
+                            keys.insert(Edge::Variation(new_parser.current_key + 1));
+                        });
+                } else {
+                    // Or continuing variation
+                    new_parser
+                        .graph
+                        .entry(*prev_node_key)
+                        .and_modify(|(_, keys)| {
+                            keys.insert(Edge::Stem(new_parser.current_key + 1));
+                        });
+                }
+                new_parser.add_node(move_text, comment);
+            }
+        }
 
         // dbg!(&parser);
         Ok((rest.trim_start(), new_parser.to_owned()))
@@ -203,11 +239,12 @@ mod test {
         //     }
         // );
     }
+
     // #[test]
     fn game_with_nested_comment_and_variations() {
         let pgn = PgnParser::new();
         let res = pgn
-            .parse("1.e4 {This is a comment}(1. d4 e5 ) 1-0")
+            .parse("1.e4 {This is a comment}(1. d4 Nf6 ) e5 1-0")
             .unwrap();
         dbg!(res);
     }
