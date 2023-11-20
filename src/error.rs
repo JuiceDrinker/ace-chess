@@ -9,5 +9,5 @@ pub enum Error {
     NoPrevMove,
     NoNextMove,
     OwnPieceOnSquare,
-    ParsedError,
+    ParseError,
 }

@@ -93,13 +93,8 @@ impl MoveTree {
         }
     }
 
-    pub fn add_new_move(
-        &mut self,
-        r#move: Move,
-        displayed_node: Option<NodeId>,
-        board: &Board,
-    ) -> NodeId {
-        match displayed_node {
+    pub fn add_new_move(&mut self, r#move: Move, parent: Option<NodeId>, board: &Board) -> NodeId {
+        match parent {
             None => {
                 // If displayed_node is none, we are in starting position
                 // Look for roots, dont append if root with same move exists
