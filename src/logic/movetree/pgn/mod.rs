@@ -173,6 +173,20 @@ mod test {
     use super::*;
 
     #[test]
+    fn it_move_entries() {
+        let mut parser = PgnParser::new();
+        let _ = parser.move_entry("1.d4 e5").unwrap();
+        assert_eq!(parser.graph[&1_usize], (("d4", None), HashSet::new()));
+    }
+
+    #[test]
+    fn it_move_entries_without_move_number() {
+        let mut parser = PgnParser::new();
+        let _ = parser.move_entry("d4").unwrap();
+        assert_eq!(parser.graph[&1_usize], (("d4", None), HashSet::new()));
+    }
+
+    #[test]
     fn parses_nested_variations() {
         let parser = PgnParser::new();
         let res = parser

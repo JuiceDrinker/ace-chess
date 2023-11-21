@@ -134,34 +134,6 @@ mod test {
     }
 
     #[test]
-    fn it_move_entries() {
-        // let (_, parsed) = fold_graph("1.d4 e5").unwrap();
-        // assert!(parsed.len() == 2);
-        // assert_eq!(
-        //     parsed,
-        //     vec![ParsedMove {
-        //         r#move: "d4",
-        //         comment: None,
-        //         variations: vec![],
-        //     }],
-        // );
-    }
-
-    // #[test]
-    // fn it_move_entries_without_move_number() {
-    //     let (_, parsed) = fold_graph("d4").unwrap();
-    //     assert!(parsed.len() == 1);
-    //     assert_eq!(
-    //         parsed,
-    //         vec![ParsedMove {
-    //             r#move: "d4",
-    //             comment: None,
-    //             variations: vec![],
-    //         }],
-    //     );
-    // }
-
-    //#[test]
     #[should_panic]
     fn panics_on_rank_outside_bounds() {
         parse_rank("9").unwrap();
@@ -215,7 +187,7 @@ mod test {
         assert_eq!(move_text, "Nexd5");
     }
 
-    //#[test]
+    #[test]
     fn parses_disambiguated_capture() {
         let (_, move_text) = parse_disambiguated_capture("ex").unwrap();
         assert_eq!(move_text, "ex")
