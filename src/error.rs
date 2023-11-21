@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Error {
     Comm,
     InvalidRank,

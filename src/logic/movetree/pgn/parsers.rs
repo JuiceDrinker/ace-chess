@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use nom::{
     branch::alt,
     bytes::complete::{take_until, take_while_m_n},
@@ -8,6 +10,8 @@ use nom::{
     IResult, Parser,
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag, ParserExt};
+
+use super::Nag;
 
 fn parse_rank(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
     take_while_m_n(1, 1, |c: char| matches!(c, '1'..='8')).parse(input)
@@ -72,6 +76,18 @@ fn pawn_move(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
     alt((basic_pawn_move, pawn_capture, pawn_capture)).parse(input)
 }
 
+pub fn nag(input: &str) -> IResult<&str, Nag, ErrorTree<&str>> {
+    map(
+        ws(tag("!?")
+            .or(tag("?!"))
+            .or(tag("??"))
+            .or(tag("?"))
+            .or(tag("!!"))
+            .or(tag("!"))),
+        |nag| Nag::from_str(nag).unwrap(),
+    )
+    .parse(input)
+}
 pub fn move_text(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
     let (rest, move_text) =
         alt((pawn_move, parse_piece_move, tag("0-0"), tag("0-0-0"))).parse(input)?;
@@ -191,6 +207,42 @@ mod test {
     fn parses_disambiguated_capture() {
         let (_, move_text) = parse_disambiguated_capture("ex").unwrap();
         assert_eq!(move_text, "ex")
+    }
+
+    #[test]
+    fn parses_nag_interesting() {
+        let (_, nag) = nag("!?").unwrap();
+        assert_eq!(nag, Nag::Interesting);
+    }
+
+    #[test]
+    fn parses_nag_dubious() {
+        let (_, nag) = nag("?!").unwrap();
+        assert_eq!(nag, Nag::Dubious);
+    }
+
+    #[test]
+    fn parses_nag_poor() {
+        let (_, nag) = nag("?").unwrap();
+        assert_eq!(nag, Nag::Poor);
+    }
+
+    #[test]
+    fn parses_nag_blunder() {
+        let (_, nag) = nag("??").unwrap();
+        assert_eq!(nag, Nag::Blunder);
+    }
+
+    #[test]
+    fn parses_nag_good() {
+        let (_, nag) = nag("!").unwrap();
+        assert_eq!(nag, Nag::Good);
+    }
+
+    #[test]
+    fn parses_nag_excellent() {
+        let (_, nag) = nag("!!").unwrap();
+        assert_eq!(nag, Nag::Excellent);
     }
 
     #[test]

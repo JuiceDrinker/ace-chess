@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    str::FromStr,
+};
 
 mod parsers;
 use nom::{IResult, Parser};
@@ -8,18 +11,45 @@ use nom_supreme::{error::ErrorTree, ParserExt};
 
 use crate::{error::Error, prelude::Result};
 
-use self::parsers::{comment, move_number, move_text};
+use self::parsers::{comment, move_number, move_text, nag};
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 enum Edge {
     Variation(Key),
     Stem(Key),
 }
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Nag {
+    Good,
+    Excellent,
+    Poor,
+    Blunder,
+    Dubious,
+    Interesting,
+}
+
+impl FromStr for Nag {
+    type Err = Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "!" => Ok(Self::Good),
+            "!!" => Ok(Self::Excellent),
+            "?" => Ok(Self::Poor),
+            "??" => Ok(Self::Blunder),
+            "?!" => Ok(Self::Dubious),
+            "!?" => Ok(Self::Interesting),
+            _ => Err(Error::ParseError),
+        }
+    }
+}
+
 type Key = usize;
 type MoveText<'a> = &'a str;
 type Edges = HashSet<Edge>;
-type MoveTextAndComment<'a> = (MoveText<'a>, Option<Comment<'a>>);
-type AdjacencyList<'a> = HashMap<Key, (MoveTextAndComment<'a>, Edges)>;
+type Move<'a> = (MoveText<'a>, Option<Comment<'a>>, Option<Nag>);
+type AdjacencyList<'a> = HashMap<Key, (Move<'a>, Edges)>;
 type Comment<'a> = &'a str;
 
 #[derive(Default, Debug, Clone)]
@@ -60,11 +90,11 @@ impl<'a> PgnParser<'a> {
         PgnParser::default()
     }
 
-    fn add_node(&mut self, move_text: MoveText<'a>, comment: Option<Comment<'a>>) {
+    fn add_node(&mut self, r#move: Move<'a>) {
         self.current_key += 1;
         self.prev_node = Some(self.current_key);
         self.graph
-            .insert(self.current_key, ((move_text, comment), HashSet::new()));
+            .insert(self.current_key, (r#move, HashSet::new()));
     }
 
     fn parse(mut self, input: &'a str) -> Result<AdjacencyList> {
@@ -130,15 +160,17 @@ impl<'a> PgnParser<'a> {
 
         let (rest, _) = move_number.opt().parse(left_to_parse.trim_start())?;
         let (rest, move_text) = move_text.parse(rest.trim_start())?;
+        let (rest, nag) = nag.opt().parse(rest.trim_start())?;
         let (rest, comment) = comment.opt().parse(rest.trim_start())?;
+        let parsed_move: Move = (move_text, comment, nag);
 
         match (self.get_variation_creator(), self.prev_node) {
             // Root of tree just add_node
-            (None, None) => self.add_node(move_text, comment),
+            (None, None) => self.add_node(parsed_move),
 
             // Middle of a stem
             (None, Some(prev_node_key)) => {
-                self.add_node(move_text, comment);
+                self.add_node(parsed_move);
                 self.graph.entry(prev_node_key).and_modify(|(_, keys)| {
                     keys.insert(Edge::Stem(self.current_key));
                 });
@@ -159,7 +191,7 @@ impl<'a> PgnParser<'a> {
                         keys.insert(Edge::Stem(self.current_key + 1));
                     });
                 }
-                self.add_node(move_text, comment);
+                self.add_node(parsed_move)
             }
             // Invalid state
             (Some(_), None) => panic!("Can't have no root but variation creator"),
@@ -176,14 +208,17 @@ mod test {
     fn it_move_entries() {
         let mut parser = PgnParser::new();
         let _ = parser.move_entry("1.d4 e5").unwrap();
-        assert_eq!(parser.graph[&1_usize], (("d4", None), HashSet::new()));
+        assert_eq!(parser.graph[&1_usize], (("d4", None, None), HashSet::new()));
     }
 
     #[test]
     fn it_move_entries_without_move_number() {
         let mut parser = PgnParser::new();
-        let _ = parser.move_entry("d4").unwrap();
-        assert_eq!(parser.graph[&1_usize], (("d4", None), HashSet::new()));
+        let _ = parser.move_entry("d4?").unwrap();
+        assert_eq!(
+            parser.graph[&1_usize],
+            (("d4", None, Some(Nag::Poor)), HashSet::new())
+        );
     }
 
     #[test]
