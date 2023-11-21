@@ -114,10 +114,6 @@ pub fn move_number(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
         ws(u8.terminated(tag("."))).recognize(),
     ))
     .parse(input)
-    // ws(u8
-    //     .terminated(tag("...").or(u8.terminated(tag("."))))
-    //     .recognize())
-    // .parse(input)
 }
 
 #[cfg(test)]
