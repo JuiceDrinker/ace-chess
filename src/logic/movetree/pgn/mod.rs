@@ -1,7 +1,9 @@
 #![allow(dead_code)]
+#![warn(clippy::all)]
+const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{BTreeMap, HashMap, HashSet, VecDeque},
     str::FromStr,
 };
 
@@ -16,13 +18,41 @@ use crate::{
 
 use crate::logic::movetree::pgn::parsers::{comment, move_number, move_text, nag};
 
+use super::treenode::Fen;
+
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 enum Edge {
     Variation(Key),
     Stem(Key),
 }
 
+impl Ord for Edge {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let a = self.get_key();
+        let b = other.get_key();
+        a.cmp(b)
+    }
+}
+
+impl PartialOrd for Edge {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Edge {
+    const fn get_key(&self) -> &Key {
+        match self {
+            Self::Variation(k) | Self::Stem(k) => k,
+        }
+    }
+}
 #[derive(Clone, Debug, PartialEq)]
+enum ListEntry<'a> {
+    Root(Fen),
+    Node(Move<'a>),
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Nag {
     Good,
     Excellent,
@@ -52,52 +82,116 @@ type Key = usize;
 type MoveText<'a> = &'a str;
 type Edges = HashSet<Edge>;
 type Move<'a> = (MoveText<'a>, Option<Comment<'a>>, Option<Nag>);
-type AdjacencyList<'a> = HashMap<Key, (Move<'a>, Edges)>;
+
+#[derive(Debug, Clone, PartialEq, Default)]
+struct AdjacencyList<'a>(BTreeMap<Key, (ListEntry<'a>, Edges)>);
+impl<'a> AdjacencyList<'a> {
+    fn get_parent(&self, key: Key, ancestor: Key) -> Option<Key> {
+        if let Some((_, edges)) = self.0.get(&ancestor) {
+            if edges.is_empty() {
+                return None;
+            }
+            if edges.contains(&Edge::Variation(key)) || edges.contains(&Edge::Stem(key)) {
+                Some(ancestor)
+            } else {
+                edges
+                    .iter()
+                    .fold(Vec::new(), |mut acc, edge| {
+                        acc.push(self.get_parent(key, *edge.get_key()));
+                        acc
+                    })
+                    .into_iter()
+                    .flatten()
+                    .next()
+            }
+        } else {
+            None
+        }
+    }
+}
 type Comment<'a> = &'a str;
 
 #[derive(Default, Debug, Clone)]
-struct VariationStack(VecDeque<Key>);
+struct Variation(VecDeque<Key>, HashMap<Key, usize>);
 
-impl VariationStack {
+impl Variation {
     fn new() -> Self {
         Self::default()
     }
 
-    pub fn is_empty(&self) -> bool {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn get_variation_count(&self, key: Key) -> usize {
+        *self.1.get(&key).unwrap_or(&0)
+    }
+
+    fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
-    pub fn pop(&mut self) -> Option<Key> {
-        self.0.pop_back()
+    fn pop(&mut self) -> Option<Key> {
+        if let Some(key) = self.0.pop_back() {
+            if let Some(count) = self.1.get(&key) {
+                if count > &1 {
+                    self.1.entry(key).and_modify(|c| *c -= 1);
+                } else {
+                    self.1.remove_entry(&key);
+                }
+            }
+            return Some(key);
+        }
+        None
     }
 
-    pub fn push(&mut self, key: Key) {
-        self.0.push_back(key)
+    fn push(&mut self, key: Key) {
+        self.0.push_back(key);
+        self.1
+            .entry(key)
+            .and_modify(|count| *count += 1)
+            .or_insert(1);
     }
 
-    pub fn peek(&self) -> Option<&Key> {
+    fn peek(&self) -> Option<&Key> {
         self.0.back()
     }
 }
 
 #[derive(Default, Debug, Clone)]
 struct PgnParser<'a> {
-    stack: VariationStack,
+    stack: Variation,
     graph: AdjacencyList<'a>,
     current_key: usize,
-    prev_node: Option<Key>,
+    prev_node: Key,
 }
 
 impl<'a> PgnParser<'a> {
     fn new() -> Self {
-        Self::default()
+        Self {
+            stack: Variation::default(),
+            graph: {
+                let mut graph = BTreeMap::new();
+                graph.insert(
+                    0,
+                    (
+                        ListEntry::Root(STARTING_POSITION_FEN.to_owned()),
+                        HashSet::new(),
+                    ),
+                );
+                AdjacencyList(graph)
+            },
+            current_key: 0,
+            prev_node: 0,
+        }
     }
 
     fn add_node(&mut self, r#move: Move<'a>) {
         self.current_key += 1;
-        self.prev_node = Some(self.current_key);
+        self.prev_node = self.current_key;
         self.graph
-            .insert(self.current_key, (r#move, HashSet::new()));
+            .0
+            .insert(self.current_key, (ListEntry::Node(r#move), HashSet::new()));
     }
 
     fn parse(mut self, input: &'a str) -> Result<AdjacencyList> {
@@ -113,8 +207,8 @@ impl<'a> PgnParser<'a> {
         Ok(self.graph)
     }
 
-    fn prev_node(&self) -> Option<&Key> {
-        self.prev_node.as_ref()
+    const fn prev_node(&self) -> &Key {
+        &self.prev_node
     }
 
     fn get_variation_creator(&self) -> Option<&Key> {
@@ -132,11 +226,29 @@ impl<'a> PgnParser<'a> {
             // TODO: Keep on processing file if there are more games
             return Ok(("", ""));
         }
-        let prev_node = &self.prev_node();
         if let Some(after_start_of_variation) = left_to_parse.strip_prefix('(') {
+            if self.stack.is_empty() {
+                // We are in first move of variation
+                let parent = self.graph.get_parent(self.prev_node, 0).unwrap();
+                self.graph.0.entry(parent).and_modify(|(_, edges)| {
+                    edges.insert(Edge::Variation(self.current_key + 1));
+                });
+                self.stack.push(parent);
+            } else {
+                let parent = self
+                    .graph
+                    .get_parent(
+                        self.prev_node,
+                        *self.get_variation_creator().expect("Stack is not empty"),
+                    )
+                    .expect("Previous node always exists");
+                self.stack.push(parent);
+                self.graph.0.entry(parent).and_modify(|(_, edges)| {
+                    edges.insert(Edge::Variation(self.current_key + 1));
+                });
+            }
             // If we enter a variation the last node we saw was the one that got us here
-            self.stack
-                .push(*prev_node.expect("Variation cannot be root"));
+            // First move of a new variation
             left_to_parse = after_start_of_variation;
         } else if let Some(after_end_of_variation) = left_to_parse.strip_prefix(')') {
             // When we get done with a variation we need to pop off the stack
@@ -144,12 +256,25 @@ impl<'a> PgnParser<'a> {
                 if after_end_of_variation.is_empty() {
                     // if nothing else left to parse then end parser
                     return Ok((after_end_of_variation, after_end_of_variation));
-                } else {
-                    // The popped last variation stack item is the previous node
-                    // who's variation we just exited
-                    left_to_parse = after_end_of_variation.trim_start();
-                    self.prev_node = Some(popped);
                 }
+                if self.stack.peek().unwrap_or(&0) == &popped {
+                    let (_, edges) = self.graph.0.get(&popped).unwrap();
+                    let mut sorted_edges = edges.iter().collect::<Vec<_>>();
+                    sorted_edges.sort();
+
+                    self.prev_node = *sorted_edges
+                        .into_iter()
+                        .filter(|e| *e.get_key() != self.current_key)
+                        .nth(
+                            self.stack
+                                .get_variation_count(*self.get_variation_creator().unwrap_or(&0)),
+                        )
+                        .unwrap()
+                        .get_key();
+                } else {
+                    self.prev_node = popped;
+                }
+                left_to_parse = after_end_of_variation.trim_start();
             } else {
                 // If we expect to pop an item but is already empty
                 // There were more opening parenthes than closed parentheses
@@ -159,6 +284,10 @@ impl<'a> PgnParser<'a> {
             // Run the rest of the input
             // Need to call
             return self.move_entry(left_to_parse);
+        } else {
+            self.graph.0.entry(self.prev_node).and_modify(|(_, edges)| {
+                edges.insert(Edge::Stem(self.current_key + 1));
+            });
         }
 
         let (rest, _) = move_number.opt().parse(left_to_parse)?;
@@ -167,43 +296,12 @@ impl<'a> PgnParser<'a> {
         let (rest, comment) = comment.opt().parse(rest.trim_start())?;
         let parsed_move: Move = (move_text, comment, nag);
 
-        match (self.get_variation_creator(), self.prev_node) {
-            // Root of tree just add_node
-            (None, None) => self.add_node(parsed_move),
-
-            // Middle of a stem
-            (None, Some(prev_node_key)) => {
-                self.add_node(parsed_move);
-                self.graph.entry(prev_node_key).and_modify(|(_, keys)| {
-                    keys.insert(Edge::Stem(self.current_key));
-                });
-            }
-
-            // We are in midst of a variation
-            (Some(variation_creator_key), Some(prev_node_key)) => {
-                // First move of variation
-                if *variation_creator_key == prev_node_key {
-                    self.graph
-                        .entry(*variation_creator_key)
-                        .and_modify(|(_, keys)| {
-                            keys.insert(Edge::Variation(self.current_key + 1));
-                        });
-                } else {
-                    // Or continuing variation
-                    self.graph.entry(prev_node_key).and_modify(|(_, keys)| {
-                        keys.insert(Edge::Stem(self.current_key + 1));
-                    });
-                }
-                self.add_node(parsed_move)
-            }
-            // Invalid state
-            (Some(_), None) => panic!("Can't have no root but variation creator"),
-        }
-
+        self.add_node(parsed_move);
         Ok((rest.trim_start(), rest.trim_start()))
     }
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
 
@@ -211,7 +309,10 @@ mod test {
     fn it_move_entries() {
         let mut parser = PgnParser::new();
         let _ = parser.move_entry("1.d4 e5").unwrap();
-        assert_eq!(parser.graph[&1_usize], (("d4", None, None), HashSet::new()));
+        assert_eq!(
+            parser.graph.0[&1_usize],
+            (ListEntry::Node(("d4", None, None)), HashSet::new())
+        );
     }
 
     #[test]
@@ -219,8 +320,11 @@ mod test {
         let mut parser = PgnParser::new();
         let _ = parser.move_entry("d4?").unwrap();
         assert_eq!(
-            parser.graph[&1_usize],
-            (("d4", None, Some(Nag::Poor)), HashSet::new())
+            parser.graph.0[&1_usize],
+            (
+                ListEntry::Node(("d4", None, Some(Nag::Poor))),
+                HashSet::new()
+            )
         );
     }
 
@@ -228,10 +332,12 @@ mod test {
     fn parses_nested_variations() {
         let parser = PgnParser::new();
         let res = parser
-            .parse("1. d4 ( 1. e4 e5 (2... Nf6) ) d5 1-0")
+            .parse("1. d4 ( 1. e4 e5 (2... Nf6 3. Nh3) ) d5 2.Nf3 (2. a4) 1-0")
+            // .parse("1. d4 ( 1. e4 e5 2. Nf3 Nf6 (2... a6 (2... b6 )(2... Nc6) 3. Na3)  ) d5 1-0")
+            // .parse("1.d4 e5 (1...e6 2.e4)")
             .unwrap();
 
-        assert_eq!(res.len(), 5)
+        assert_eq!(dbg!(res.0).len(), 9);
     }
 
     #[test]
@@ -245,7 +351,7 @@ mod test {
     fn parses_to_linear_graph() {
         let pgn = PgnParser::new();
         let res = pgn.parse("1.e4 e5 2.d4 d5 1-0 ").unwrap();
-        assert_eq!(res.len(), 4);
+        assert_eq!(res.0.len(), 5);
     }
 
     #[test]
@@ -255,6 +361,6 @@ mod test {
             .parse("1.e4 {This is a comment}(1. d4 Nf6 ) e5 1-0")
             .unwrap();
 
-        assert_eq!(res.len(), 4);
+        assert_eq!(res.0.len(), 5);
     }
 }
