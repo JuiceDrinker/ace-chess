@@ -1,5 +1,7 @@
 use std::fmt;
 
+use crate::error::{Error, ParseKind};
+
 use super::color::Color;
 
 /// Represent a chess piece.
@@ -60,6 +62,22 @@ impl fmt::Display for Piece {
                 Piece::King => "K",
             }
         )
+    }
+}
+
+impl TryFrom<&char> for Piece {
+    type Error = Error;
+
+    fn try_from(value: &char) -> Result<Self, Self::Error> {
+        match value {
+            'N' => Ok(Piece::Knight),
+            'B' => Ok(Piece::Bishop),
+            'R' => Ok(Piece::Rook),
+            'Q' => Ok(Piece::Queen),
+            'K' => Ok(Piece::King),
+            'a'..='h' => Ok(Piece::Pawn),
+            _ => Err(Error::ParseError(ParseKind::CharToPiece)),
+        }
     }
 }
 

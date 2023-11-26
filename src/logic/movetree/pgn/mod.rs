@@ -9,7 +9,10 @@ mod parsers;
 use nom::{IResult, Parser};
 use nom_supreme::{error::ErrorTree, ParserExt};
 
-use crate::{error::Error, prelude::Result};
+use crate::{
+    error::{Error, ParseKind},
+    prelude::Result,
+};
 
 use crate::logic::movetree::pgn::parsers::{comment, move_number, move_text, nag};
 
@@ -40,7 +43,7 @@ impl FromStr for Nag {
             "??" => Ok(Self::Blunder),
             "?!" => Ok(Self::Dubious),
             "!?" => Ok(Self::Interesting),
-            _ => Err(Error::ParseError),
+            _ => Err(Error::ParseError(ParseKind::StringToNag)),
         }
     }
 }
@@ -104,7 +107,7 @@ impl<'a> PgnParser<'a> {
             if let Ok((rest, _)) = self.move_entry(left_to_parse.trim_start()) {
                 left_to_parse = rest;
             } else {
-                return Err(Error::ParseError);
+                return Err(Error::ParseError(ParseKind::StringToPgn));
             }
         }
         Ok(self.graph)

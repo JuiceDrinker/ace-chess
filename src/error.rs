@@ -9,5 +9,12 @@ pub enum Error {
     NoPrevMove,
     NoNextMove,
     OwnPieceOnSquare,
-    ParseError,
+    ParseError(ParseKind),
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum ParseKind {
+    CharToPiece,
+    StringToPgn,
+    StringToNag,
 }

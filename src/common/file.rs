@@ -75,6 +75,19 @@ impl File {
     pub fn between(&self, lower_bound: File, upper_bound: File) -> bool {
         lower_bound <= *self && *self <= upper_bound
     }
+
+    pub fn as_str(&self) -> &str {
+        match &self {
+            File::A => "a",
+            File::B => "b",
+            File::C => "c",
+            File::D => "d",
+            File::E => "e",
+            File::F => "f",
+            File::G => "g",
+            File::H => "h",
+        }
+    }
 }
 
 impl FromStr for File {

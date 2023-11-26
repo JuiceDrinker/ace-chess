@@ -71,7 +71,6 @@ pub struct Board {
     pub en_passant: Option<Square>,
     pub halfmoves: u64,
     pub fullmoves: u64,
-    // pub displayed_node: Option<NodeId>,
 }
 
 impl Board {
@@ -86,13 +85,8 @@ impl Board {
             en_passant: None,
             halfmoves: 0,
             fullmoves: 1,
-            // displayed_node: None,
         }
     }
-
-    // pub fn is_start_of_game(&self) -> bool {
-    //     self.displayed_node.is_none()
-    // }
 
     /// Get the [`Color`] of the player who has to play.
     pub fn side_to_move(&self) -> Color {
@@ -243,6 +237,18 @@ impl Board {
         *self
     }
 
+    pub fn get_valid_moves_to(&self, dest: &Square, piece: &Piece) -> Vec<Square> {
+        let mut valid_moves = Vec::new();
+        for square in ALL_SQUARES {
+            if self.get_legal_moves(square).contains(dest)
+                && self.on_is(square, (*piece, self.side_to_move))
+            {
+                valid_moves.push(square);
+            }
+        }
+
+        valid_moves
+    }
     /// Remove [`CastleRights`] for a particular side.
     ///
     /// # Examples
