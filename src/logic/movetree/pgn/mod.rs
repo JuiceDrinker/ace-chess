@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
 const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 use std::{
@@ -12,11 +12,11 @@ use nom::{IResult, Parser};
 use nom_supreme::{error::ErrorTree, ParserExt};
 
 use crate::{
+    common::{board::Board, file::File, piece::Piece, square::Square},
     error::{Error, ParseKind},
+    logic::movetree::pgn::parsers::{comment, move_number, move_text, nag},
     prelude::Result,
 };
-
-use crate::logic::movetree::pgn::parsers::{comment, move_number, move_text, nag};
 
 use super::treenode::Fen;
 
@@ -47,10 +47,11 @@ impl Edge {
         }
     }
 }
+
 #[derive(Clone, Debug, PartialEq)]
 enum ListEntry<'a> {
     Root(Fen),
-    Node(Move<'a>),
+    Node(Move<'a>, Fen),
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Nag {
@@ -106,6 +107,13 @@ impl<'a> AdjacencyList<'a> {
             }
         } else {
             None
+        }
+    }
+
+    fn get_fen(&self, key: Key) -> Fen {
+        let (entry, _) = self.0.get(&key).expect("Key should exist in map");
+        match entry {
+            ListEntry::Root(fen) | ListEntry::Node(_, fen) => fen.to_string(),
         }
     }
 }
@@ -186,12 +194,15 @@ impl<'a> PgnParser<'a> {
         }
     }
 
-    fn add_node(&mut self, r#move: Move<'a>) {
+    fn add_node(&mut self, r#move: Move<'a>, parent: Key) {
+        let prev_fen = self.graph.get_fen(parent);
+        let next_fen = PgnParser::generate_next_fen(&prev_fen, r#move.0);
         self.current_key += 1;
         self.prev_node = self.current_key;
-        self.graph
-            .0
-            .insert(self.current_key, (ListEntry::Node(r#move), HashSet::new()));
+        self.graph.0.insert(
+            self.current_key,
+            (ListEntry::Node(r#move, next_fen), HashSet::new()),
+        );
     }
 
     fn parse(mut self, input: &'a str) -> Result<AdjacencyList> {
@@ -218,6 +229,7 @@ impl<'a> PgnParser<'a> {
     // Base case
     fn move_entry(&mut self, input: &'a str) -> IResult<&'a str, &'a str, ErrorTree<&'a str>> {
         let mut left_to_parse = input.trim_start();
+        let mut parent_key: Option<Key> = None;
         if left_to_parse.starts_with("1-0")
             || input.trim_start().starts_with("1-0")
             || input.trim_start().starts_with("1/2/-1/2")
@@ -234,6 +246,7 @@ impl<'a> PgnParser<'a> {
                     edges.insert(Edge::Variation(self.current_key + 1));
                 });
                 self.stack.push(parent);
+                parent_key = Some(parent);
             } else {
                 let parent = self
                     .graph
@@ -246,6 +259,7 @@ impl<'a> PgnParser<'a> {
                 self.graph.0.entry(parent).and_modify(|(_, edges)| {
                     edges.insert(Edge::Variation(self.current_key + 1));
                 });
+                parent_key = Some(parent);
             }
             // If we enter a variation the last node we saw was the one that got us here
             // First move of a new variation
@@ -282,7 +296,6 @@ impl<'a> PgnParser<'a> {
             }
 
             // Run the rest of the input
-            // Need to call
             return self.move_entry(left_to_parse);
         } else {
             self.graph.0.entry(self.prev_node).and_modify(|(_, edges)| {
@@ -291,13 +304,44 @@ impl<'a> PgnParser<'a> {
         }
 
         let (rest, _) = move_number.opt().parse(left_to_parse)?;
+        // TODO: This doesn't take into account promotion
         let (rest, move_text) = move_text.parse(rest.trim_start())?;
         let (rest, nag) = nag.opt().parse(rest.trim_start())?;
         let (rest, comment) = comment.opt().parse(rest.trim_start())?;
         let parsed_move: Move = (move_text, comment, nag);
 
-        self.add_node(parsed_move);
+        self.add_node(parsed_move, parent_key.unwrap_or(self.prev_node));
         Ok((rest.trim_start(), rest.trim_start()))
+    }
+
+    fn generate_next_fen(current_fen: &Fen, move_text: MoveText) -> Fen {
+        let mut board = Board::from_str(current_fen).expect("Should be valid FEN");
+        let piece =
+            Piece::try_from(&move_text.chars().next().unwrap()).expect("Should be valid piece");
+        // TODO: This doesn't take into account promotion
+        let dest =
+            Square::from_str(&move_text[move_text.len() - 2..]).expect("Should be valid square");
+
+        let src = dbg!(board.get_valid_moves_to(&dest, &piece));
+        assert!(!src.is_empty());
+        if src.len() == 1 {
+            board.update(crate::common::r#move::Move {
+                from: src.into_iter().next().unwrap(),
+                to: dest,
+            });
+        } else {
+            // Nexd5 vs Ned5
+            let disambiguation =
+                File::from_str(&move_text.chars().nth(1).unwrap().to_string()).unwrap();
+            for s in src {
+                if s.file() == disambiguation {
+                    board
+                        .update(crate::common::r#move::Move { from: s, to: dest })
+                        .to_string();
+                }
+            }
+        }
+        board.to_string()
     }
 }
 
@@ -311,7 +355,13 @@ mod test {
         let _ = parser.move_entry("1.d4 e5").unwrap();
         assert_eq!(
             parser.graph.0[&1_usize],
-            (ListEntry::Node(("d4", None, None)), HashSet::new())
+            (
+                ListEntry::Node(
+                    ("d4", None, None,),
+                    String::from("rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1")
+                ),
+                HashSet::new()
+            )
         );
     }
 
@@ -322,7 +372,10 @@ mod test {
         assert_eq!(
             parser.graph.0[&1_usize],
             (
-                ListEntry::Node(("d4", None, Some(Nag::Poor))),
+                ListEntry::Node(
+                    ("d4", None, Some(Nag::Poor)),
+                    String::from("rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1")
+                ),
                 HashSet::new()
             )
         );
@@ -362,5 +415,14 @@ mod test {
             .unwrap();
 
         assert_eq!(res.0.len(), 5);
+    }
+
+    #[test]
+    fn next_fen() {
+        let res = PgnParser::generate_next_fen(&STARTING_POSITION_FEN.to_string(), "d4");
+        assert_eq!(
+            res,
+            "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1"
+        );
     }
 }
