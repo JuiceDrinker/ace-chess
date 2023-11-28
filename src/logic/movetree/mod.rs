@@ -104,7 +104,10 @@ impl MoveTree {
                     .find(|n| self.get_tree()[*n].get().notation == r#move.as_notation(board))
                 {
                     Some(node) => node,
-                    None => self.0.new_node(TreeNode::new(&r#move, board)),
+                    None => self.0.new_node(TreeNode::new(
+                        r#move.as_notation(board),
+                        board.clone().update(r#move).to_string(),
+                    )),
                 }
             }
             Some(node) => {
@@ -114,7 +117,10 @@ impl MoveTree {
                 {
                     Some(child) => child,
                     None => {
-                        let id = self.0.new_node(TreeNode::new(&r#move, board));
+                        let id = self.0.new_node(TreeNode::new(
+                            r#move.as_notation(board),
+                            board.clone().update(r#move).to_string(),
+                        ));
                         node.append(id, &mut self.0);
                         id
                     }

@@ -1,7 +1,5 @@
 use serde::Serialize;
 
-use crate::common::{board::Board, r#move::Move};
-
 pub(crate) type Notation = String;
 // Type this as &str?
 pub type Fen = String;
@@ -13,11 +11,8 @@ pub struct TreeNode {
 }
 
 impl TreeNode {
-    pub fn new(r#move: &Move, board: &Board) -> Self {
-        TreeNode {
-            notation: r#move.as_notation(board),
-            fen: board.clone().update(*r#move).to_string(),
-        }
+    pub fn new(notation: Notation, fen: Fen) -> Self {
+        TreeNode { notation, fen }
     }
     #[allow(dead_code)]
     pub fn pretty_print(node: indextree::NodeId, tree: &indextree::Arena<TreeNode>) {

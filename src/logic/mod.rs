@@ -31,7 +31,7 @@ impl Dispatcher {
     pub fn dispatch(&mut self, event: Event) {
         match event {
             Event::MakeMove(from, to, displayed_node) => {
-                let new_node = self.play(from, to, displayed_node, self.board);
+                let new_node = self.play(from, to, displayed_node);
                 let _ = self.sender.send(Event::NewNodeAppended(new_node));
             }
             Event::GetBoard => {
@@ -64,12 +64,11 @@ impl Dispatcher {
         from: Square,
         to: Square,
         displayed_node: Option<NodeId>,
-        mut board: Board,
     ) -> Result<NodeId> {
         let m = Move::new(from, to);
-        if board.is_legal(m) {
-            let new_node = self.move_tree.add_new_move(m, displayed_node, &board);
-            self.board = board.update(m);
+        if self.board.is_legal(m) {
+            let new_node = self.move_tree.add_new_move(m, displayed_node, &self.board);
+            self.board = self.board.update(m);
             return Ok(new_node);
         } else if self.board.color_on_is(to, self.board.side_to_move()) {
             return Err(Error::OwnPieceOnSquare);
