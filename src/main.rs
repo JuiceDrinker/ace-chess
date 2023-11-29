@@ -1,3 +1,4 @@
+#![warn(clippy::pedantic)]
 use std::thread;
 
 use common::{board::Board, square::Square};
@@ -13,21 +14,22 @@ mod gui;
 mod logic;
 mod prelude;
 
-fn main() -> Result<()> {
+fn main() {
     let (gui_sender, logic_recv) = crossbeam_channel::bounded::<Event>(10);
     let (logic_sender, gui_recv) = crossbeam_channel::bounded::<Event>(10);
 
-    thread::spawn(move || {
-        let board = Board::default();
-        let mut dispatcher = Dispatcher::new(board, logic_sender);
-        loop {
-            let event = logic_recv.recv().unwrap();
-            dispatcher.dispatch(event);
-        }
-    });
+    let _ = thread::Builder::new()
+        .name(String::from("logic"))
+        .spawn(move || {
+            let board = Board::default();
+            let mut dispatcher = Dispatcher::new(board, logic_sender);
+            loop {
+                let event = logic_recv.recv().unwrap();
+                dispatcher.dispatch(&event);
+            }
+        });
     let gui = Gui::new(gui_sender, gui_recv);
     run(gui);
-    Ok(())
 }
 
 // Run the GUI.

@@ -4,7 +4,7 @@ use nom::{
     branch::alt,
     bytes::complete::{take_until, take_while_m_n},
     character::complete::{multispace0, u8},
-    combinator::{map, opt, recognize},
+    combinator::{map, recognize},
     error::ParseError,
     sequence::{delimited, tuple},
     IResult, Parser,
@@ -25,9 +25,9 @@ fn parse_piece(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
     take_while_m_n(1, 1, |c: char| matches!(c, 'N' | 'B' | 'R' | 'Q' | 'K')).parse(input)
 }
 
-fn parse_promotion_piece(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
-    take_while_m_n(1, 1, |c: char| matches!(c, 'N' | 'B' | 'R' | 'Q')).parse(input)
-}
+// fn parse_promotion_piece(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
+//     take_while_m_n(1, 1, |c: char| matches!(c, 'N' | 'B' | 'R' | 'Q')).parse(input)
+// }
 
 fn parse_disambiguated_capture(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
     recognize(tuple((parse_file, tag("x")))).parse(input)
@@ -56,24 +56,26 @@ fn basic_pawn_move(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
 }
 
 fn pawn_capture(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
-    recognize(tuple((parse_file, tag("x"), parse_rank)))
+    recognize(tuple((parse_file, tag("x"), parse_file, parse_rank)))
         .context("pawn capture")
         .parse(input)
 }
 
-fn pawn_promotion(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
-    recognize(tuple((
-        parse_file,
-        opt(tag("x")),
-        parse_rank,
-        tag("="),
-        parse_promotion_piece,
-    )))
-    .parse(input)
-}
+// fn pawn_promotion(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
+//     recognize(tuple((
+//         parse_file,
+//         opt(tag("x")),
+//         parse_rank,
+//         tag("="),
+//         parse_promotion_piece,
+//     )))
+//     .parse(input)
+// }
 
 fn pawn_move(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
-    alt((basic_pawn_move, pawn_capture, pawn_capture)).parse(input)
+    alt((basic_pawn_move, pawn_capture, pawn_capture))
+        .context("pawn move")
+        .parse(input)
 }
 
 pub fn nag(input: &str) -> IResult<&str, Nag, ErrorTree<&str>> {
@@ -89,8 +91,11 @@ pub fn nag(input: &str) -> IResult<&str, Nag, ErrorTree<&str>> {
     .parse(input)
 }
 pub fn move_text(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
-    let (rest, move_text) =
-        alt((pawn_move, parse_piece_move, tag("0-0"), tag("0-0-0"))).parse(input)?;
+    let (rest, move_text) = alt((pawn_move, parse_piece_move, tag("O-O-O"), tag("O-O")))
+        .context("move text")
+        .parse(input)?;
+
+    let (rest, _) = tag("+").or(tag("#")).opt().parse(rest)?;
     Ok((rest, move_text))
 }
 
@@ -112,17 +117,9 @@ fn ws<'a, O, E: ParseError<&'a str>, F: Parser<&'a str, O, E>>(f: F) -> impl Par
     delimited(multispace0, f, multispace0)
 }
 
-fn result(input: &str) -> IResult<&str, bool, ErrorTree<&str>> {
-    map(tag("1-0").or(tag("0-1").or(tag("1/2-1/2"))), |_| true).parse(input)
-}
-
-fn move_number_black(input: &str) -> IResult<&str, Option<&str>, ErrorTree<&str>> {
-    ws(u8.terminated(tag("...")).recognize().opt()).parse(input)
-}
-
-fn move_number_white(input: &str) -> IResult<&str, Option<&str>, ErrorTree<&str>> {
-    ws(u8.terminated(tag(".")).recognize().opt()).parse(input)
-}
+// fn result(input: &str) -> IResult<&str, bool, ErrorTree<&str>> {
+//     map(tag("1-0").or(tag("0-1").or(tag("1/2-1/2"))), |_| true).parse(input)
+// }
 
 pub fn move_number(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
     alt((
@@ -176,25 +173,25 @@ mod test {
     #[test]
     fn parses_move_text() {
         let (_, move_text) = move_text("Nd5").unwrap();
-        assert_eq!(move_text, "Nd5",)
+        assert_eq!(move_text, "Nd5");
     }
 
     #[test]
     fn parses_move_text_with_disambiguation() {
         let (_, move_text) = move_text("Nbd5 Nd2").unwrap();
-        assert_eq!(move_text, "Nbd5")
+        assert_eq!(move_text, "Nbd5");
     }
 
     #[test]
     fn parses_move_text_with_capture() {
         let (_, move_text) = move_text("Nxd5").unwrap();
-        assert_eq!(move_text, "Nxd5",)
+        assert_eq!(move_text, "Nxd5");
     }
 
     #[test]
     fn parses_capture() {
         let (_, move_text) = parse_capture("xe5").unwrap();
-        assert_eq!(move_text, "x")
+        assert_eq!(move_text, "x");
     }
 
     #[test]
@@ -206,7 +203,7 @@ mod test {
     #[test]
     fn parses_disambiguated_capture() {
         let (_, move_text) = parse_disambiguated_capture("ex").unwrap();
-        assert_eq!(move_text, "ex")
+        assert_eq!(move_text, "ex");
     }
 
     #[test]

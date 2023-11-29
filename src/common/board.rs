@@ -237,11 +237,11 @@ impl Board {
         *self
     }
 
-    pub fn get_valid_moves_to(&self, dest: &Square, piece: &Piece) -> Vec<Square> {
+    pub fn get_valid_moves_to(&self, dest: Square, piece: Piece) -> Vec<Square> {
         let mut valid_moves = Vec::new();
         for square in ALL_SQUARES {
-            if self.get_legal_moves(square).contains(dest)
-                && self.on_is(square, (*piece, self.side_to_move))
+            if self.get_legal_moves(square).contains(&dest)
+                && self.on_is(square, (piece, self.side_to_move))
             {
                 valid_moves.push(square);
             }
@@ -623,24 +623,7 @@ impl Board {
                             }
                         }
 
-                        // If can capture (normal or en passant)
-                        if from.file_for(side) == File::A {
-                            dest_square = from.forward(side).right();
-                            if (self.color_on_is(dest_square, !side)
-                                || Some(dest_square) == self.en_passant)
-                                && !self.is_exposing_move(Move::new(from, dest_square))
-                            {
-                                valid_moves.push(dest_square);
-                            }
-                        } else if from.file_for(side) == File::H {
-                            dest_square = from.forward(side).left();
-                            if (self.color_on_is(dest_square, !side)
-                                || Some(dest_square) == self.en_passant)
-                                && !self.is_exposing_move(Move::new(from, dest_square))
-                            {
-                                valid_moves.push(dest_square);
-                            }
-                        } else {
+                        {
                             dest_square = from.forward(side).right();
                             if (self.color_on_is(dest_square, !side)
                                 || Some(dest_square) == self.en_passant)
@@ -1368,5 +1351,13 @@ mod tests {
 
         let fen = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5";
         assert_eq!(board.to_string(), fen.to_string());
+    }
+    #[test]
+    fn check_legal() {
+        let board = Board::default();
+        assert!(board.is_legal(Move {
+            from: Square::E2,
+            to: Square::E4,
+        }));
     }
 }

@@ -18,6 +18,7 @@ pub enum Event {
     GetNextMove(Option<NodeId>),
     NewNodeAppended(Result<NodeId>),
     GoToNode(NodeId),
+    LoadPgn(String),
 }
 
 #[derive(Clone, Debug)]

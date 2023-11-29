@@ -1,4 +1,4 @@
-mod pgn;
+pub mod pgn;
 pub mod treenode;
 
 use indextree::{Arena, NodeId};
@@ -52,8 +52,8 @@ impl MoveTree {
     }
 
     pub fn get_next_move(&self, node: Option<NodeId>) -> Result<NextMoveOptions> {
-        match node {
-            Some(n) => match n.children(self.get_tree()).count() {
+        if let Some(n) = node {
+            match n.children(self.get_tree()).count() {
                 0 => Err(Error::NoNextMove),
                 1 => {
                     let child_node_id = n.children(self.get_tree()).nth(0).unwrap();
@@ -69,25 +69,24 @@ impl MoveTree {
                         .collect();
                     Ok(NextMoveOptions::Multiple(options))
                 }
-            },
-            None => {
-                let roots = self.get_tree_roots();
-                match roots.len() {
-                    0 => Err(Error::NoNextMove),
-                    1 => {
-                        let root = roots[0];
-                        Ok(NextMoveOptions::Single(
-                            root,
-                            self.get_fen_for_node(root).to_string(),
-                        ))
-                    }
-                    _ => {
-                        let options = roots
-                            .into_iter()
-                            .map(|child| (child, self.get_tree()[child].get().notation.clone()))
-                            .collect();
-                        Ok(NextMoveOptions::Multiple(options))
-                    }
+            }
+        } else {
+            let roots = self.get_tree_roots();
+            match roots.len() {
+                0 => Err(Error::NoNextMove),
+                1 => {
+                    let root = roots[0];
+                    Ok(NextMoveOptions::Single(
+                        root,
+                        self.get_fen_for_node(root).to_string(),
+                    ))
+                }
+                _ => {
+                    let options = roots
+                        .into_iter()
+                        .map(|child| (child, self.get_tree()[child].get().notation.clone()))
+                        .collect();
+                    Ok(NextMoveOptions::Multiple(options))
                 }
             }
         }
@@ -111,19 +110,18 @@ impl MoveTree {
                 }
             }
             Some(node) => {
-                match node
+                if let Some(child) = node
                     .children(self.get_tree())
                     .find(|n| self.get_tree()[*n].get().notation == r#move.as_notation(board))
                 {
-                    Some(child) => child,
-                    None => {
-                        let id = self.0.new_node(TreeNode::new(
-                            r#move.as_notation(board),
-                            board.clone().update(r#move).to_string(),
-                        ));
-                        node.append(id, &mut self.0);
-                        id
-                    }
+                    child
+                } else {
+                    let id = self.0.new_node(TreeNode::new(
+                        r#move.as_notation(board),
+                        board.clone().update(r#move).to_string(),
+                    ));
+                    node.append(id, &mut self.0);
+                    id
                 }
             }
         }

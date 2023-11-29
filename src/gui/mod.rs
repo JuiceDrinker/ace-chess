@@ -5,6 +5,7 @@ mod theme;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use arboard::Clipboard;
 use ggez::event::{KeyCode, KeyMods, MouseButton};
 use ggez::{event, graphics, Context, GameError};
 use indextree::NodeId;
@@ -71,17 +72,14 @@ impl Gui {
     fn draw_empty_board(&self, ctx: &mut Context) -> GameResult {
         for y in 0..BOARD_SIZE.1 {
             for x in 0..BOARD_SIZE.0 {
-                let color_index = if (x % 2 == 1 && y % 2 == 1) || (x % 2 == 0 && y % 2 == 0) {
-                    0
-                } else {
-                    1
-                };
+                let color_index =
+                    usize::from(!((x % 2 == 1 && y % 2 == 1) || (x % 2 == 0 && y % 2 == 0)));
                 let mesh = graphics::MeshBuilder::new()
                     .rectangle(
                         graphics::DrawMode::fill(),
                         graphics::Rect::new(
-                            x as f32 * BOARD_CELL_PX_SIZE.0,
-                            y as f32 * BOARD_CELL_PX_SIZE.1,
+                            f32::from(x) * BOARD_CELL_PX_SIZE.0,
+                            f32::from(y) * BOARD_CELL_PX_SIZE.1,
                             BOARD_CELL_PX_SIZE.0,
                             BOARD_CELL_PX_SIZE.1,
                         ),
@@ -154,7 +152,7 @@ impl Gui {
         if x < BOARD_PX_SIZE.0 {
             self.click_on_board(x, y);
         } else {
-            for button in self.buttons.clone().iter() {
+            for button in &self.buttons.clone() {
                 if button.contains(x, y) {
                     button.clicked(self);
                 }
@@ -196,10 +194,16 @@ impl Gui {
     }
 
     fn draw_side(&self, ctx: &mut Context) -> GameResult {
-        for button in self.buttons.iter() {
+        for button in &self.buttons {
             button.draw(ctx, self.theme.font_path, self.theme.font_scale)?;
         }
         Ok(())
+    }
+
+    fn load_pgn(&self) {
+        let mut clipboard = Clipboard::new().unwrap();
+        let contents = clipboard.get_text().unwrap();
+        let _ = self.logic_channel.send(Event::LoadPgn(contents));
     }
 }
 
@@ -245,7 +249,7 @@ impl event::EventHandler<GameError> for Gui {
     fn mouse_motion_event(&mut self, ctx: &mut Context, x: f32, y: f32, _dx: f32, _dy: f32) {
         if x > BOARD_PX_SIZE.0 {
             let mut on_button = false;
-            for button in self.buttons.iter() {
+            for button in &self.buttons {
                 if button.contains(x, y) {
                     on_button = true;
                     break;
@@ -272,13 +276,18 @@ impl event::EventHandler<GameError> for Gui {
         &mut self,
         ctx: &mut Context,
         keycode: KeyCode,
-        _keymod: KeyMods,
+        keymod: KeyMods,
         _repeat: bool,
     ) {
         match keycode {
             KeyCode::Escape => event::quit(ctx),
             KeyCode::Right => get_next_move(self),
             KeyCode::Left => get_prev_move(self),
+            KeyCode::V => {
+                if let KeyMods::CTRL = keymod {
+                    self.load_pgn();
+                }
+            }
             _ => {}
         };
     }

@@ -63,7 +63,7 @@ impl Button {
     //     self.enable = true;
     // }
     //
-    // /// Disable the button.
+    /// Disable the button.
     // pub fn disable(&mut self) {
     //     self.enable = false;
     // }

@@ -14,6 +14,7 @@ impl TreeNode {
     pub fn new(notation: Notation, fen: Fen) -> Self {
         TreeNode { notation, fen }
     }
+
     #[allow(dead_code)]
     pub fn pretty_print(node: indextree::NodeId, tree: &indextree::Arena<TreeNode>) {
         println!(

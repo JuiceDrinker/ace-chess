@@ -11,7 +11,7 @@ use crate::{
     prelude::Result,
 };
 
-use self::movetree::{MoveTree, NextMoveOptions};
+use self::movetree::{pgn::STARTING_POSITION_FEN, MoveTree, NextMoveOptions};
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
@@ -28,10 +28,10 @@ impl Dispatcher {
         }
     }
 
-    pub fn dispatch(&mut self, event: Event) {
+    pub fn dispatch(&mut self, event: &Event) {
         match event {
             Event::MakeMove(from, to, displayed_node) => {
-                let new_node = self.play(from, to, displayed_node);
+                let new_node = self.play(*from, *to, *displayed_node);
                 let _ = self.sender.send(Event::NewNodeAppended(new_node));
             }
             Event::GetBoard => {
@@ -40,20 +40,24 @@ impl Dispatcher {
             Event::GetLegalMoves(square) => {
                 let _ = self
                     .sender
-                    .send(Event::SendLegalMoves(self.board.get_legal_moves(square)));
+                    .send(Event::SendLegalMoves(self.board.get_legal_moves(*square)));
             }
             Event::GetPrevMove(displayed_node) => {
-                let new_node = self.prev_move(displayed_node);
+                let new_node = self.prev_move(*displayed_node);
                 let _ = self.sender.send(Event::NewDisplayNode(new_node));
             }
             Event::GetNextMove(displayed_node) => {
-                let new_node = self.next_move(displayed_node);
+                let new_node = self.next_move(*displayed_node);
                 let _ = self.sender.send(Event::NextMoveResponse(new_node));
             }
             Event::GoToNode(node) => {
-                self.board = Board::from_str(self.move_tree.get_tree()[node].get().fen.as_str())
+                self.board = Board::from_str(self.move_tree.get_tree()[*node].get().fen.as_str())
                     .expect("Failed to load board from node fen");
-                let _ = self.sender.send(Event::NewDisplayNode(Ok(node)));
+                let _ = self.sender.send(Event::NewDisplayNode(Ok(*node)));
+            }
+            Event::LoadPgn(pgn) => {
+                let root_id = self.load_pgn(pgn);
+                let _ = self.sender.send(Event::NewDisplayNode(Ok(root_id)));
             }
             _ => {}
         }
@@ -76,6 +80,17 @@ impl Dispatcher {
         Err(Error::IllegalMove)
     }
 
+    pub fn load_pgn(&mut self, pgn: &str) -> NodeId {
+        let graph = movetree::pgn::Parser::new()
+            .parse(pgn)
+            //TODO: Handle error if invalid PGN
+            .expect("Invalid PGN");
+        let root_id = &graph.get_tree_root();
+        self.move_tree = MoveTree(graph.0);
+        // TODO: Get root of tree
+        self.board = Board::from_str(STARTING_POSITION_FEN).unwrap();
+        *root_id
+    }
     pub fn prev_move(&mut self, node_id: NodeId) -> Result<NodeId> {
         match self.move_tree.get_prev_move(node_id) {
             Ok((id, fen)) => {
