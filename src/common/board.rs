@@ -169,6 +169,7 @@ impl Board {
                 }
 
                 // Promotion
+                // TODO: Give user option on what piece to promote to
                 if m.to.rank_for(side) == Rank::Eighth {
                     self[m.to] = Some((Piece::Queen, side));
                 }

@@ -21,6 +21,7 @@ pub fn get_next_move(gui: &mut Gui) {
         .send(Event::GetNextMove(gui.displayed_node));
     match gui.receiver.recv().unwrap() {
         Event::NextMoveResponse(Ok(NextMoveResponse::Single(node))) => {
+            gui.selected_square = None;
             gui.displayed_node = Some(node);
         }
         Event::NextMoveResponse(Err(Error::NoNextMove)) => {}
@@ -44,6 +45,7 @@ pub fn go_to_node(gui: &mut Gui, node_id: NodeId) {
     let _ = gui.logic_channel.send(Event::GoToNode(node_id));
     match gui.receiver.recv().unwrap() {
         Event::NewDisplayNode(Ok(node)) => {
+            gui.selected_square = None;
             gui.displayed_node = Some(node);
             gui.init_buttons();
         }
@@ -53,6 +55,7 @@ pub fn go_to_node(gui: &mut Gui, node_id: NodeId) {
 pub fn get_prev_move(gui: &mut Gui) {
     if let Some(node) = gui.displayed_node {
         let _ = gui.logic_channel.send(Event::GetPrevMove(node));
+        gui.selected_square = None;
         match gui.receiver.recv().unwrap() {
             Event::NewDisplayNode(Ok(node)) => {
                 gui.displayed_node = Some(node);

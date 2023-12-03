@@ -15,8 +15,8 @@ pub enum Piece {
     King,
 }
 
-// /// Number of promotion.
-// pub const NUM_PROMOTION_PIECES: usize = 4;
+/// Number of promotion.
+pub const NUM_PROMOTION_PIECES: usize = 4;
 
 // /// Enumerate all [`Piece`] in which a [`Piece::Pawn`] can be promoted.
 // pub const PROMOTION_PIECES: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
