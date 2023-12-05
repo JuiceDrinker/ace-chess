@@ -32,7 +32,7 @@ pub fn get_next_move(gui: &mut Gui) {
                 // TODO: Disable other buttons and/or drain these buttons if something else was
                 // clicked
                 gui.buttons.push(Button::create_next_move_option_button(
-                    notation,
+                    &notation,
                     idx,
                     Rc::new(RefCell::new(move |gui: &mut Gui| go_to_node(gui, node_id))),
                 ));

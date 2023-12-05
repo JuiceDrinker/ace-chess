@@ -64,8 +64,8 @@ impl Square {
 
     /// Convert this [`Square`] into a [`usize`].
     #[inline]
-    pub fn as_index(&self) -> usize {
-        *self as usize
+    pub fn as_index(self) -> usize {
+        self as usize
     }
 
     /// Make a square from [`File`] and [`Rank`].
@@ -109,7 +109,7 @@ impl Square {
     /// - [`BOARD_SIZE`]
     /// - [`BOARD_CELL_PX_SIZE`]
     #[inline]
-    pub fn as_screen_coords(&self) -> (f32, f32) {
+    pub fn as_screen_coords(self) -> (f32, f32) {
         // transpose to grid space (return the y-axis)
         let x = self.file().as_index() as f32;
         let y = (BOARD_SIZE.1 as usize - self.rank().as_index() - 1) as f32;
@@ -132,7 +132,7 @@ impl Square {
     /// assert_eq!(square.file(), File::D);
     /// ```
     #[inline]
-    pub fn file(&self) -> File {
+    pub fn file(self) -> File {
         File::new(self.as_index() % NUM_FILES)
     }
 
@@ -147,7 +147,7 @@ impl Square {
     /// assert_eq!(Square::A1.file_for(Color::Black), File::H);
     /// ```
     #[inline]
-    pub fn file_for(&self, color: Color) -> File {
+    pub fn file_for(self, color: Color) -> File {
         let file = self.file();
         match color {
             Color::White => file,
@@ -167,7 +167,7 @@ impl Square {
     /// assert_eq!(square.rank(), Rank::Seventh);
     /// ```
     #[inline]
-    pub fn rank(&self) -> Rank {
+    pub fn rank(self) -> Rank {
         Rank::new(self.as_index() / NUM_RANKS)
     }
 
@@ -185,7 +185,7 @@ impl Square {
     /// assert_eq!(Square::E7.rank_for(Color::Black), Rank::Second);
     /// ```
     #[inline]
-    pub fn rank_for(&self, color: Color) -> Rank {
+    pub fn rank_for(self, color: Color) -> Rank {
         let rank = self.rank();
         match color {
             Color::White => rank,
@@ -203,7 +203,7 @@ impl Square {
     /// assert_eq!(Square::B2.up(), Square::B3);
     /// ```
     #[inline]
-    pub fn up(&self) -> Self {
+    pub fn up(self) -> Self {
         Square::make_square(self.file(), self.rank().up())
     }
 
@@ -217,8 +217,8 @@ impl Square {
     /// assert_eq!(Square::B2.n_up(3), Square::B5);
     /// ```
     #[inline]
-    pub fn n_up(&self, n: usize) -> Self {
-        let mut square = *self;
+    pub fn n_up(self, n: usize) -> Self {
+        let mut square = self;
         for _ in 0..n {
             square = square.up();
         }
@@ -236,7 +236,7 @@ impl Square {
     /// assert_eq!(Square::B2.forward(Color::Black), Square::B1);
     /// ```
     #[inline]
-    pub fn forward(&self, color: Color) -> Self {
+    pub fn forward(self, color: Color) -> Self {
         match color {
             Color::White => Square::make_square(self.file(), self.rank().up()),
             Color::Black => Square::make_square(self.file(), self.rank().down()),
@@ -254,8 +254,8 @@ impl Square {
     /// assert_eq!(Square::B8.n_forward(Color::Black, 5), Square::B3);
     /// ```
     #[inline]
-    pub fn n_forward(&self, color: Color, n: usize) -> Self {
-        let mut square = *self;
+    pub fn n_forward(self, color: Color, n: usize) -> Self {
+        let mut square = self;
         for _ in 0..n {
             square = square.forward(color);
         }
@@ -272,7 +272,7 @@ impl Square {
     /// assert_eq!(Square::B2.down(), Square::B1);
     /// ```
     #[inline]
-    pub fn down(&self) -> Self {
+    pub fn down(self) -> Self {
         Square::make_square(self.file(), self.rank().down())
     }
 
@@ -286,8 +286,8 @@ impl Square {
     /// assert_eq!(Square::B4.n_down(2), Square::B2);
     /// ```
     #[inline]
-    pub fn n_down(&self, n: usize) -> Self {
-        let mut square = *self;
+    pub fn n_down(self, n: usize) -> Self {
+        let mut square = self;
         for _ in 0..n {
             square = square.down();
         }
@@ -305,7 +305,7 @@ impl Square {
     /// assert_eq!(Square::B2.backward(Color::Black), Square::B3);
     /// ```
     #[inline]
-    pub fn backward(&self, color: Color) -> Self {
+    pub fn backward(self, color: Color) -> Self {
         match color {
             Color::White => Square::make_square(self.file(), self.rank().down()),
             Color::Black => Square::make_square(self.file(), self.rank().up()),
@@ -323,8 +323,8 @@ impl Square {
     /// assert_eq!(Square::B3.n_backward(Color::Black, 5), Square::B8);
     /// ```
     #[inline]
-    pub fn n_backward(&self, color: Color, n: usize) -> Self {
-        let mut square = *self;
+    pub fn n_backward(self, color: Color, n: usize) -> Self {
+        let mut square = self;
         for _ in 0..n {
             square = square.backward(color);
         }
@@ -341,7 +341,7 @@ impl Square {
     /// assert_eq!(Square::B2.right(), Square::C2);
     /// ```
     #[inline]
-    pub fn right(&self) -> Self {
+    pub fn right(self) -> Self {
         Square::make_square(self.file().right(), self.rank())
     }
 
@@ -355,8 +355,8 @@ impl Square {
     /// assert_eq!(Square::A4.n_right(3), Square::D4);
     /// ```
     #[inline]
-    pub fn n_right(&self, n: usize) -> Self {
-        let mut square = *self;
+    pub fn n_right(self, n: usize) -> Self {
+        let mut square = self;
         for _ in 0..n {
             square = square.right();
         }
@@ -374,7 +374,7 @@ impl Square {
     /// assert_eq!(Square::B2.right_for(Color::Black), Square::A2);
     /// ```
     #[inline]
-    pub fn right_for(&self, color: Color) -> Self {
+    pub fn right_for(self, color: Color) -> Self {
         match color {
             Color::White => Square::make_square(self.file().right(), self.rank()),
             Color::Black => Square::make_square(self.file().left(), self.rank()),
@@ -392,8 +392,8 @@ impl Square {
     /// assert_eq!(Square::D4.n_right_for(Color::Black, 3), Square::A4);
     /// ```
     #[inline]
-    pub fn n_right_for(&self, color: Color, n: usize) -> Self {
-        let mut square = *self;
+    pub fn n_right_for(self, color: Color, n: usize) -> Self {
+        let mut square = self;
         for _ in 0..n {
             square = square.right_for(color);
         }
@@ -410,7 +410,7 @@ impl Square {
     /// assert_eq!(Square::B2.left(), Square::A2);
     /// ```
     #[inline]
-    pub fn left(&self) -> Self {
+    pub fn left(self) -> Self {
         Square::make_square(self.file().left(), self.rank())
     }
 
@@ -424,8 +424,8 @@ impl Square {
     /// assert_eq!(Square::D4.n_left(3), Square::A4);
     /// ```
     #[inline]
-    pub fn n_left(&self, n: usize) -> Self {
-        let mut square = *self;
+    pub fn n_left(self, n: usize) -> Self {
+        let mut square = self;
         for _ in 0..n {
             square = square.left();
         }
@@ -443,7 +443,7 @@ impl Square {
     /// assert_eq!(Square::B2.left_for(Color::Black), Square::C2);
     /// ```
     #[inline]
-    pub fn left_for(&self, color: Color) -> Self {
+    pub fn left_for(self, color: Color) -> Self {
         match color {
             Color::White => Square::make_square(self.file().left(), self.rank()),
             Color::Black => Square::make_square(self.file().right(), self.rank()),
@@ -461,8 +461,8 @@ impl Square {
     /// assert_eq!(Square::A4.n_left_for(Color::Black, 3), Square::D4);
     // ```
     #[inline]
-    pub fn n_left_for(&self, color: Color, n: usize) -> Self {
-        let mut square = *self;
+    pub fn n_left_for(self, color: Color, n: usize) -> Self {
+        let mut square = self;
         for _ in 0..n {
             square = square.left_for(color);
         }
@@ -480,7 +480,7 @@ impl Square {
     /// assert_eq!(Square::B2.follow_direction(Direction::DownRight), Square::C1);
     /// ```
     #[inline]
-    pub fn follow_direction(&self, direction: Direction) -> Self {
+    pub fn follow_direction(self, direction: Direction) -> Self {
         match direction {
             Direction::Up => self.up(),
             Direction::UpRight => self.up().right(),
@@ -503,7 +503,7 @@ impl Square {
     ///
     /// assert_eq!(Square::A2.distance(Square::B5), 3);
     /// ```
-    pub fn distance(&self, other: Square) -> u32 {
+    pub fn distance(self, other: Square) -> u32 {
         max(
             self.file().distance(other.file()),
             self.rank().distance(other.rank()),
@@ -530,11 +530,11 @@ impl FromStr for Square {
             return Err(Error::InvalidSquare);
         }
         let ch: Vec<char> = s.chars().collect();
-        match ch[0] {
+        match ch.first().expect("String has min length 2") {
             'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' => {}
             _ => return Err(Error::InvalidSquare),
         }
-        match ch[1] {
+        match ch.get(1).expect("String has min length 2") {
             '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' => {}
             _ => return Err(Error::InvalidSquare),
         }

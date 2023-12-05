@@ -42,15 +42,15 @@ impl File {
 
     /// Convert this [`File`] into a [`usize`].
     #[inline]
-    pub fn as_index(&self) -> usize {
-        *self as usize
+    pub fn as_index(self) -> usize {
+        self as usize
     }
 
     /// Go one file to the left.
     ///
     /// > **Note**: If impossible, wrap around.
     #[inline]
-    pub fn left(&self) -> Self {
+    pub fn left(self) -> Self {
         File::new(self.as_index().wrapping_sub(1))
     }
 
@@ -58,22 +58,22 @@ impl File {
     ///
     /// > **Note**: If impossible, wrap around.
     #[inline]
-    pub fn right(&self) -> Self {
+    pub fn right(self) -> Self {
         File::new(self.as_index() + 1)
     }
 
     /// Distance between two [`File`].
     #[inline]
-    pub fn distance(&self, other: File) -> u32 {
+    pub fn distance(self, other: File) -> u32 {
         self.as_index().abs_diff(other.as_index()) as u32
     }
 
     /// Verify if the [`File`] is between two other (i.e. lower <= self <= upper).
     ///
-    /// Assume that lower_bound <= upper_bound.
+    /// Assume that `lower_bound` <= `upper_bound`.
     #[inline]
-    pub fn between(&self, lower_bound: File, upper_bound: File) -> bool {
-        lower_bound <= *self && *self <= upper_bound
+    pub fn between(self, lower_bound: File, upper_bound: File) -> bool {
+        lower_bound <= self && self <= upper_bound
     }
 
     pub fn as_str(&self) -> &str {

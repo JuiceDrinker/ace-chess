@@ -11,9 +11,7 @@ use std::fmt;
 use std::ops::{Index, IndexMut};
 use std::str::FromStr;
 
-// use indextree::NodeId;
-
-use crate::*;
+use crate::{Result, Square};
 
 use super::color::Color;
 use super::direction::Direction;
@@ -139,7 +137,7 @@ impl Board {
     /// board.update(m);
     /// ```
     pub fn update(&mut self, m: Move) -> Self {
-        let piece_from = self.piece_on(&m.from).unwrap();
+        let piece_from = self.piece_on(m.from).unwrap();
         let side = self.side_to_move;
         let mut new_en_passant = false;
         let reset_halfmove = self.piece_on_is(m.from, Piece::Pawn) || self.is_occupied(m.to);
@@ -192,7 +190,7 @@ impl Board {
                         self[m.to.left().left()] = None;
                         self[m.to.right()] = Some((Piece::Rook, side));
                     } else {
-                        panic!("Error::InvalidMove: Board: {}, invalid_move: {}", self, m);
+                        panic!("Error::InvalidMove: Board: {self}, invalid_move: {m}");
                     }
                 } else {
                     // normal move
@@ -208,10 +206,10 @@ impl Board {
                 // remove CastleRights
                 match m.from {
                     Square::A1 | Square::A8 => {
-                        self.remove_castle_rights(side, CastleRights::QueenSide)
+                        self.remove_castle_rights(side, CastleRights::QueenSide);
                     }
                     Square::H1 | Square::H8 => {
-                        self.remove_castle_rights(side, CastleRights::KingSide)
+                        self.remove_castle_rights(side, CastleRights::KingSide);
                     }
                     _ => {}
                 }
@@ -273,13 +271,13 @@ impl Board {
     }
 
     /// Get the [`Piece`] at a given [`Square`].
-    pub fn piece_on(&self, square: &Square) -> Option<Piece> {
+    pub fn piece_on(&self, square: Square) -> Option<Piece> {
         self.squares[square.as_index()].map(|(piece, _)| piece)
     }
 
     /// Verify if the [`Square`] is occupied by the given [`Piece`].
     pub fn piece_on_is(&self, square: Square, piece: Piece) -> bool {
-        matches!(self.piece_on(&square), Some(real_piece) if real_piece == piece)
+        matches!(self.piece_on(square), Some(real_piece) if real_piece == piece)
     }
 
     /// Get the [`Color`] at a given [`Square`].
@@ -394,6 +392,7 @@ impl Board {
     /// If no [`Piece`] exist on the [`Square`], then return false.
     ///
     /// > **Note**: The legality is not verify, if you want to: use [`has_legal_move`][Board::has_legal_move].
+    // TODO: Dead code?
     pub fn has_valid_move(&self, square: Square) -> bool {
         !self.get_valid_moves(square).is_empty()
     }
@@ -1012,12 +1011,12 @@ impl fmt::Display for Board {
         // Piece Placement
         let mut count = 0;
         for rank in ALL_RANKS.iter().rev() {
-            for file in ALL_FILES.iter() {
+            for file in &ALL_FILES {
                 let square_index = Square::make_square(*file, *rank).as_index();
 
                 if let Some((piece, color)) = self.squares[square_index] {
                     if count != 0 {
-                        write!(f, "{}", count)?;
+                        write!(f, "{count}")?;
                         count = 0;
                     }
                     write!(f, "{}", piece.as_fen_string(color))?;
@@ -1027,7 +1026,7 @@ impl fmt::Display for Board {
             }
 
             if count != 0 {
-                write!(f, "{}", count)?;
+                write!(f, "{count}")?;
             }
 
             if *rank != Rank::First {
@@ -1066,7 +1065,7 @@ impl fmt::Display for Board {
 
         // Possible En Passant Targets
         if let Some(sq) = self.en_passant() {
-            write!(f, "{}", sq)?;
+            write!(f, "{sq}")?;
         } else {
             write!(f, "-")?;
         }
@@ -1144,9 +1143,9 @@ mod tests {
     #[test]
     fn piece_on() {
         let board = Board::default();
-        assert_eq!(board.piece_on(&Square::A1), Some(Piece::Rook));
-        assert_eq!(board.piece_on(&Square::A2), Some(Piece::Pawn));
-        assert_eq!(board.piece_on(&Square::A3), None);
+        assert_eq!(board.piece_on(Square::A1), Some(Piece::Rook));
+        assert_eq!(board.piece_on(Square::A2), Some(Piece::Pawn));
+        assert_eq!(board.piece_on(Square::A3), None);
     }
 
     #[test]

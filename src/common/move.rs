@@ -27,20 +27,19 @@ impl Move {
     ///
     /// assert_eq!(m.distance(), 7);
     /// ```
-    pub fn distance(&self) -> u32 {
+    pub fn distance(self) -> u32 {
         self.from.distance(self.to)
     }
 
-    pub fn as_notation(&self, board: &Board) -> String {
+    pub fn as_notation(self, board: &Board) -> String {
         let Move { from, to } = self;
         let piece = board.piece_on(from).unwrap();
-        let mut move_text = String::from("");
+        let mut move_text = String::new();
         if piece == Piece::King {
-            if (from, to) == (&Square::E1, &Square::G1) || (from, to) == (&Square::E8, &Square::G8)
-            {
+            if (from, to) == (Square::E1, Square::G1) || (from, to) == (Square::E8, Square::G8) {
                 return String::from("0-0");
-            } else if (from, to) == (&Square::E1, &Square::C1)
-                || (from, to) == (&Square::E8, &Square::C8)
+            } else if (from, to) == (Square::E1, Square::C1)
+                || (from, to) == (Square::E8, Square::C8)
             {
                 return String::from("0-0-0");
             }
@@ -49,16 +48,16 @@ impl Move {
             match piece {
                 Piece::Pawn => {
                     move_text = if is_capture {
-                        format!("{}x{}", from, to)
+                        format!("{from}x{to}")
                     } else {
-                        format!("{}", to)
+                        format!("{to}")
                     }
                 }
                 _ => {
                     move_text = if is_capture {
-                        format!("{}x{}", piece, to)
+                        format!("{piece}x{to}")
                     } else {
-                        format!("{}{}", piece, to)
+                        format!("{piece}{to}")
                     }
                 }
             }

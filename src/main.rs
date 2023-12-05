@@ -1,4 +1,3 @@
-#![warn(clippy::pedantic)]
 use std::thread;
 
 use common::{board::Board, square::Square};

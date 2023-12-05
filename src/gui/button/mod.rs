@@ -118,12 +118,12 @@ impl Button {
     }
 
     pub fn create_next_move_option_button(
-        notation: String,
+        notation: &str,
         idx: usize,
         on_click: Rc<HandlerFunction>,
     ) -> Button {
         Button::new(
-            notation.clone(),
+            notation.to_string(),
             true,
             graphics::Rect::new(
                 BOARD_PX_SIZE.0 + 20.0,
@@ -132,7 +132,7 @@ impl Button {
                 50.0,
             ),
             graphics::Color::new(0.65, 0.44, 0.78, 1.0),
-            notation.clone(),
+            notation.to_string(),
             Align::Center,
             EventHandler(on_click),
         )
@@ -176,8 +176,8 @@ impl Button {
     fn draw_image(&self, ctx: &mut Context) -> GameResult {
         let image = graphics::Image::new(ctx, self.image_path.unwrap()).expect("Image load error");
         let image_scale = [
-            self.rect.w / image.width() as f32,
-            self.rect.h / image.height() as f32,
+            self.rect.w / f32::from(image.width()),
+            self.rect.h / f32::from(image.height()),
         ];
         let dp = graphics::DrawParam::new()
             .dest(self.rect.point())
