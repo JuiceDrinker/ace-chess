@@ -4,8 +4,8 @@ use indextree::NodeId;
 
 use crate::{
     error::Error,
-    event::{Event, NextMoveResponse},
     gui::Gui,
+    message::{Message as Event, NextMoveResponse},
 };
 
 use super::Button;

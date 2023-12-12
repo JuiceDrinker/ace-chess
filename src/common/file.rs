@@ -99,14 +99,14 @@ impl FromStr for File {
             return Err(Error::InvalidFile);
         }
         match s.chars().next().unwrap() {
-            'a' => Ok(File::A),
-            'b' => Ok(File::B),
-            'c' => Ok(File::C),
-            'd' => Ok(File::D),
-            'e' => Ok(File::E),
-            'f' => Ok(File::F),
-            'g' => Ok(File::G),
-            'h' => Ok(File::H),
+            'a' | '1' => Ok(File::A),
+            'b' | '2' => Ok(File::B),
+            'c' | '3' => Ok(File::C),
+            'd' | '4' => Ok(File::D),
+            'e' | '5' => Ok(File::E),
+            'f' | '6' => Ok(File::F),
+            'g' | '7' => Ok(File::G),
+            'h' | '8' => Ok(File::H),
             _ => Err(Error::InvalidFile),
         }
     }

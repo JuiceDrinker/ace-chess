@@ -19,7 +19,7 @@ pub enum NextMoveOptions {
     Multiple(Vec<(NodeId, Notation)>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct MoveTree(pub Arena<TreeNode>);
 
 impl MoveTree {

@@ -10,6 +10,7 @@ anyhow = "1.0.75"
 arboard = "3.3.0"
 crossbeam-channel = "0.5.8"
 ggez = "0.7.0"
+iced = {version = "0.10.0", features = ["svg", "lazy", "image"] }
 indextree = "4.6.0"
 nom = "7.1.3"
 nom-supreme = "0.8.0"
