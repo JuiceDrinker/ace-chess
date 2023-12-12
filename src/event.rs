@@ -9,6 +9,7 @@ use indextree::NodeId;
 pub enum Event {
     NextMoveResponse(Result<NextMoveResponse>),
     NewDisplayNode(Result<NodeId>),
+    SelectSquare(Square),
     MakeMove(Square, Square, Option<NodeId>),
     GetBoard,
     SendBoard(Board),
