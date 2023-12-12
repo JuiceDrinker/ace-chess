@@ -1,5 +1,6 @@
 mod button;
 pub mod config;
+pub mod styles;
 mod theme;
 
 use std::cell::RefCell;
