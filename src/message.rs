@@ -3,10 +3,12 @@ use crate::{
     logic::movetree::treenode::Notation,
     prelude::Result,
 };
+use iced::event::Event;
 use indextree::NodeId;
 
 #[derive(Clone, Debug)]
-pub enum Event {
+pub enum Message {
+    Event(Event),
     NextMoveResponse(Result<NextMoveResponse>),
     NewDisplayNode(Result<NodeId>),
     SelectSquare(Square),

@@ -1,23 +1,26 @@
 use std::str::FromStr;
 
 use common::{board::Board, rank::Rank, square::Square};
-use event::Event;
 use gui::styles;
 use iced::{
-    alignment, executor,
+    alignment,
+    event::Event,
+    executor,
+    keyboard::{self},
     widget::{container, responsive, Button, Column, Container, Image, Row},
-    Alignment, Application, Command, Length, Renderer,
+    Alignment, Application, Command, Length, Renderer, Subscription,
 };
-use logic::movetree::MoveTree;
+use logic::movetree::{MoveTree, NextMoveOptions};
+use message::Message;
 use prelude::Result;
 
 use crate::common::file::File;
 
 mod common;
 mod error;
-mod event;
 mod gui;
 mod logic;
+mod message;
 mod prelude;
 
 #[derive(Default)]
@@ -33,12 +36,12 @@ fn main() -> iced::Result {
 }
 
 impl Application for App {
-    type Message = Event;
+    type Message = Message;
     type Flags = ();
     type Theme = styles::Theme;
     type Executor = executor::Default;
 
-    fn new(_flags: Self::Flags) -> (App, iced::Command<event::Event>) {
+    fn new(_flags: Self::Flags) -> (App, iced::Command<Self::Message>) {
         (Self::default(), Command::none())
     }
 
@@ -46,10 +49,10 @@ impl Application for App {
         String::from("Ace Chess")
     }
 
-    fn update(&mut self, message: Self::Message) -> Command<event::Event> {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            Event::SelectSquare(s) => self.selected_square = Some(s),
-            Event::MakeMove(from, to, displayed_node) => {
+            Message::SelectSquare(s) => self.selected_square = Some(s),
+            Message::MakeMove(from, to, displayed_node) => {
                 let m = common::r#move::Move::new(from, to);
                 if self.board.is_legal(m) {
                     let new_node = self.move_tree.add_new_move(m, displayed_node, &self.board);
@@ -62,6 +65,47 @@ impl Application for App {
                     self.selected_square = None;
                 }
             }
+            Message::Event(e) => match e {
+                Event::Keyboard(keyboard::Event::KeyPressed {
+                    key_code: keyboard::KeyCode::Left,
+                    ..
+                }) => {
+                    dbg!(&self.move_tree);
+                    if let Some(n) = self.displayed_node {
+                        match self.move_tree.get_prev_move(n) {
+                            Ok((id, fen)) => {
+                                self.board = Board::from_str(fen)
+                                    .expect("Failed to load board from prev_move fen");
+                                self.displayed_node = Some(id);
+                            }
+                            Err(e) => {
+                                self.board = Board::default();
+                                self.displayed_node = None;
+                                eprintln!("Could not get prev move: {:?}", e);
+                            }
+                        }
+                    }
+                }
+                Event::Keyboard(keyboard::Event::KeyPressed {
+                    key_code: keyboard::KeyCode::Right,
+                    ..
+                }) => match self.move_tree.get_next_move(self.displayed_node) {
+                    Ok(NextMoveOptions::Single(id, fen)) => {
+                        self.board =
+                            Board::from_str(&fen).expect("Failed to load board from next_move fen");
+                        self.displayed_node = Some(id);
+                    }
+                    Ok(NextMoveOptions::Multiple(options)) => {
+                        let (id, _fen) = options.first().unwrap();
+                        self.board =
+                            Board::from_str(self.move_tree.get_tree()[*id].get().fen.as_str())
+                                .expect("Failed to load board from node fen");
+                        self.displayed_node = Some(*id);
+                    }
+                    Err(_) => eprintln!("Could not get next move"),
+                },
+                _ => {}
+            },
             _ => {}
         }
         Command::none()
@@ -123,9 +167,9 @@ impl Application for App {
                             .align_y(alignment::Vertical::Center),
                         )
                         .on_press(if let Some(s) = self.selected_square {
-                            Event::MakeMove(s, square, None)
+                            message::Message::MakeMove(s, square, self.displayed_node)
                         } else {
-                            Event::SelectSquare(square)
+                            message::Message::SelectSquare(square)
                         })
                         .style(button_style)
                         .width((size.width / 8.) as u16)
@@ -143,5 +187,8 @@ impl Application for App {
             .align_x(alignment::Horizontal::Center)
             .align_y(alignment::Vertical::Center)
             .into()
+    }
+    fn subscription(&self) -> Subscription<Message> {
+        iced::subscription::events().map(Message::Event)
     }
 }

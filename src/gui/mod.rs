@@ -6,6 +6,7 @@ mod theme;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use crate::message::Message as Event;
 use arboard::Clipboard;
 use ggez::event::{KeyCode, KeyMods, MouseButton};
 use ggez::{event, graphics, Context, GameError};
@@ -13,7 +14,7 @@ use indextree::NodeId;
 
 use self::button::on_click_handlers::{get_next_move, get_prev_move};
 use self::{button::Button, config::BOARD_CELL_PX_SIZE, theme::Theme};
-use crate::{common::board::Board, gui::config::BOARD_PX_SIZE, prelude::BOARD_SIZE, Event};
+use crate::{common::board::Board, gui::config::BOARD_PX_SIZE, prelude::BOARD_SIZE};
 use crate::{
     common::square::{Square, ALL_SQUARES},
     error::Error,
