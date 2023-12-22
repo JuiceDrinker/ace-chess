@@ -1,27 +1,25 @@
-use std::str::FromStr;
-
+use crate::common::file::File;
 use common::{board::Board, rank::Rank, square::Square};
-use gui::styles;
 use iced::{
     alignment,
     event::Event,
     executor,
     keyboard::{self, Modifiers},
-    widget::{column, container, responsive, row, Button, Column, Container, Image, Row},
+    widget::{container, responsive, row, Button, Column, Container, Image, Row},
     Alignment, Application, Command, Length, Renderer, Subscription,
 };
+
 use logic::movetree::{MoveTree, NextMoveOptions};
 use message::Message;
 use prelude::Result;
-
-use crate::common::file::File;
+use std::str::FromStr;
 
 mod common;
 mod error;
-mod gui;
 mod logic;
 mod message;
 mod prelude;
+mod styles;
 
 #[derive(Default)]
 struct App {
