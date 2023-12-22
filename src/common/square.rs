@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::{gui::config::BOARD_CELL_PX_SIZE, prelude::BOARD_SIZE};
+use crate::prelude::BOARD_SIZE;
 
 use super::color::Color;
 use super::direction::Direction;
@@ -81,43 +81,6 @@ impl Square {
     #[inline]
     pub fn make_square(file: File, rank: Rank) -> Square {
         Square::new(file.as_index() + rank.as_index() * BOARD_SIZE.0 as usize)
-    }
-
-    /// Transform a screen coordinate into a [`Square`].
-    ///
-    /// > **Reciprocal**: see [`Square::to_screen`].
-    ///
-    /// The result depend of:
-    /// - [`BOARD_SIZE`]
-    /// - [`BOARD_CELL_PX_SIZE`]
-    #[inline]
-    pub fn from_screen(x: f32, y: f32) -> Square {
-        // Transpose to grid space
-        let x = x / BOARD_CELL_PX_SIZE.0;
-        let y = y / BOARD_CELL_PX_SIZE.1;
-
-        // transpose to Square (return the y-axis)
-        let y = BOARD_SIZE.1 - y as i16 - 1;
-        Square::make_square(File::new(x as usize), Rank::new(y as usize))
-    }
-
-    /// Transform a [`Square`] into a screen coordinate.
-    ///
-    /// > **Reciprocal**: see [`Square::from_screen`].
-    ///
-    /// The result depend of:
-    /// - [`BOARD_SIZE`]
-    /// - [`BOARD_CELL_PX_SIZE`]
-    #[inline]
-    pub fn as_screen_coords(self) -> (f32, f32) {
-        // transpose to grid space (return the y-axis)
-        let x = self.file().as_index() as f32;
-        let y = (BOARD_SIZE.1 as usize - self.rank().as_index() - 1) as f32;
-
-        // Transpose to screen space
-        let x = x * BOARD_CELL_PX_SIZE.0;
-        let y = y * BOARD_CELL_PX_SIZE.1;
-        (x, y)
     }
 
     /// Return the [`File`] of this square.
