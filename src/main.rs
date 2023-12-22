@@ -6,8 +6,8 @@ use iced::{
     alignment,
     event::Event,
     executor,
-    keyboard::{self},
-    widget::{container, responsive, Button, Column, Container, Image, Row},
+    keyboard::{self, Modifiers},
+    widget::{column, container, responsive, row, Button, Column, Container, Image, Row},
     Alignment, Application, Command, Length, Renderer, Subscription,
 };
 use logic::movetree::{MoveTree, NextMoveOptions};
@@ -70,7 +70,6 @@ impl Application for App {
                     key_code: keyboard::KeyCode::Left,
                     ..
                 }) => {
-                    dbg!(&self.move_tree);
                     if let Some(n) = self.displayed_node {
                         match self.move_tree.get_prev_move(n) {
                             Ok((id, fen)) => {
@@ -79,8 +78,6 @@ impl Application for App {
                                 self.displayed_node = Some(id);
                             }
                             Err(e) => {
-                                self.board = Board::default();
-                                self.displayed_node = None;
                                 eprintln!("Could not get prev move: {:?}", e);
                             }
                         }
@@ -113,6 +110,7 @@ impl Application for App {
 
     fn view(&self) -> iced::Element<'_, Self::Message, Renderer<styles::Theme>> {
         let resp = responsive(move |size| {
+            let board_width = size.width * 0.75;
             let mut board_col = Column::new().spacing(0).align_items(Alignment::Center);
             let mut board_row = Row::new().spacing(0).align_items(Alignment::Center);
             let ranks = (1..=8)
@@ -172,20 +170,51 @@ impl Application for App {
                             message::Message::SelectSquare(square)
                         })
                         .style(button_style)
-                        .width((size.width / 8.) as u16)
+                        .width((board_width / 8.) as u16)
                         .height((size.height / 8.) as u16), // .style(),
                     );
                 }
                 board_col = board_col.push(board_row);
                 board_row = Row::new().spacing(0).align_items(Alignment::Center);
             }
-            board_col.into()
+            let controls = row!(
+                Button::new(
+                    Container::new("<-")
+                        .align_x(alignment::Horizontal::Center)
+                        .align_y(alignment::Vertical::Center),
+                )
+                .on_press(Message::Event(Event::Keyboard(
+                    keyboard::Event::KeyPressed {
+                        key_code: keyboard::KeyCode::Left,
+                        modifiers: Modifiers::SHIFT
+                    }
+                )))
+                .style(styles::ButtonStyle::Normal)
+                // .height(Length::Fill)
+                .width(Length::Fill),
+                Button::new(
+                    Container::new("->")
+                        .align_x(alignment::Horizontal::Center)
+                        .align_y(alignment::Vertical::Center)
+                ) // .height(Length::Fill)
+                .on_press(Message::Event(Event::Keyboard(
+                    keyboard::Event::KeyPressed {
+                        key_code: keyboard::KeyCode::Right,
+                        modifiers: Modifiers::SHIFT
+                    }
+                )))
+                .style(styles::ButtonStyle::Normal)
+                .width(Length::Fill),
+            )
+            .width(size.width * 0.3)
+            // .spacing(5)
+            .align_items(Alignment::End);
+
+            row!(board_col, controls).into()
         });
         Container::new(resp)
             .width(Length::Fill)
             .height(Length::Fill)
-            .align_x(alignment::Horizontal::Center)
-            .align_y(alignment::Vertical::Center)
             .into()
     }
     fn subscription(&self) -> Subscription<Message> {
