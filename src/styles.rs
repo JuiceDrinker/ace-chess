@@ -24,7 +24,6 @@ impl Theme {
             Self::Blue => OCPPalette::BLUE,
         }
     }
-    pub const ALL: [Theme; 1] = [Theme::Blue];
 }
 
 impl std::fmt::Display for Theme {

@@ -23,10 +23,6 @@ pub enum NextMoveOptions {
 pub struct MoveTree(pub Arena<TreeNode>);
 
 impl MoveTree {
-    pub fn new() -> Self {
-        MoveTree(Arena::new())
-    }
-
     pub fn get_tree(&self) -> &Arena<TreeNode> {
         &self.0
     }
