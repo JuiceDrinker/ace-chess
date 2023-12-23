@@ -1,4 +1,4 @@
-use crate::common::file::File;
+use crate::{common::file::File, logic::movetree::pgn::STARTING_POSITION_FEN};
 use common::{board::Board, rank::Rank, square::Square};
 use iced::{
     alignment,
@@ -77,6 +77,9 @@ impl Application for App {
                             }
                             Err(e) => {
                                 eprintln!("Could not get prev move: {:?}", e);
+                                eprintln!("Going to starting position");
+                                self.board = Board::from_str(STARTING_POSITION_FEN).unwrap();
+                                self.displayed_node = None;
                             }
                         }
                     }
