@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.75"
 arboard = "3.3.0"
-crossbeam-channel = "0.5.8"
 iced = {version = "0.10.0", features = ["svg", "lazy", "image"] }
 indextree = "4.6.0"
 nom = "7.1.3"
