@@ -7,4 +7,8 @@ pub enum Message {
     Event(Event),
     SelectSquare(Square),
     MakeMove(Square, Square, Option<NodeId>),
+    HideNextMoveOptions,
+    GoPrevMove,
+    GoNextMove,
+    GoToNode(NodeId),
 }

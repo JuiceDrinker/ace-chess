@@ -1,18 +1,17 @@
 use crate::{common::file::File, logic::movetree::pgn::STARTING_POSITION_FEN};
 use common::{board::Board, rank::Rank, square::Square};
 use iced::{
-    alignment,
-    event::Event,
-    executor,
-    keyboard::{self, Modifiers},
-    widget::{container, responsive, row, Button, Column, Container, Image, Row},
-    Alignment, Application, Command, Length, Renderer, Subscription,
+    alignment, executor,
+    keyboard::{self},
+    widget::{self, container, responsive, row, Button, Column, Container, Image, Row},
+    Alignment, Application, Command, Element, Length, Subscription,
 };
 
 use logic::movetree::{MoveTree, NextMoveOptions};
 use message::Message;
 use prelude::Result;
 use std::str::FromStr;
+use views::modal::modal::Modal;
 
 mod common;
 mod error;
@@ -20,6 +19,7 @@ mod logic;
 mod message;
 mod prelude;
 mod styles;
+mod views;
 
 #[derive(Default)]
 struct App {
@@ -27,6 +27,7 @@ struct App {
     selected_square: Option<Square>,
     move_tree: MoveTree,
     displayed_node: Option<indextree::NodeId>,
+    next_move_options: Option<Vec<(indextree::NodeId, String)>>,
 }
 
 fn main() -> iced::Result {
@@ -63,53 +64,58 @@ impl Application for App {
                     self.selected_square = None;
                 }
             }
-            Message::Event(e) => match e {
-                Event::Keyboard(keyboard::Event::KeyPressed {
-                    key_code: keyboard::KeyCode::Left,
-                    ..
-                }) => {
-                    if let Some(n) = self.displayed_node {
-                        match self.move_tree.get_prev_move(n) {
-                            Ok((id, fen)) => {
-                                self.board = Board::from_str(fen)
-                                    .expect("Failed to load board from prev_move fen");
-                                self.displayed_node = Some(id);
-                            }
-                            Err(e) => {
-                                eprintln!("Could not get prev move: {:?}", e);
-                                eprintln!("Going to starting position");
-                                self.board = Board::from_str(STARTING_POSITION_FEN).unwrap();
-                                self.displayed_node = None;
-                            }
+            Message::GoPrevMove => {
+                if let Some(n) = self.displayed_node {
+                    match self.move_tree.get_prev_move(n) {
+                        Ok((id, fen)) => {
+                            self.board = Board::from_str(fen)
+                                .expect("Failed to load board from prev_move fen");
+                            self.displayed_node = Some(id);
+                        }
+                        Err(e) => {
+                            eprintln!("Could not get prev move: {:?}", e);
+                            eprintln!("Going to starting position");
+                            self.board = Board::from_str(STARTING_POSITION_FEN).unwrap();
+                            self.displayed_node = None;
                         }
                     }
                 }
-                Event::Keyboard(keyboard::Event::KeyPressed {
-                    key_code: keyboard::KeyCode::Right,
-                    ..
-                }) => match self.move_tree.get_next_move(self.displayed_node) {
+            }
+            Message::GoNextMove => {
+                match self.move_tree.get_next_move(self.displayed_node) {
                     Ok(NextMoveOptions::Single(id, fen)) => {
                         self.board =
                             Board::from_str(&fen).expect("Failed to load board from next_move fen");
                         self.displayed_node = Some(id);
                     }
                     Ok(NextMoveOptions::Multiple(options)) => {
-                        let (id, _fen) = options.first().unwrap();
-                        self.board =
-                            Board::from_str(self.move_tree.get_tree()[*id].get().fen.as_str())
-                                .expect("Failed to load board from node fen");
-                        self.displayed_node = Some(*id);
+                        self.next_move_options = Some(options);
+                        return widget::focus_next();
+                        // let (id, _fen) = options.first().unwrap();
+                        // self.board =
+                        //     Board::from_str(self.move_tree.get_tree()[*id].get().fen.as_str())
+                        //         .expect("Failed to load board from node fen");
+                        // self.displayed_node = Some(*id);
                     }
                     Err(_) => eprintln!("Could not get next move"),
-                },
-                _ => {}
-            },
+                }
+            }
+            Message::HideNextMoveOptions => {
+                self.next_move_options = None;
+                return Command::none();
+            }
             _ => {}
+
+            Message::GoToNode(id) => {
+                let fen = self.move_tree.get_fen_for_node(id);
+                self.board = Board::from_str(fen).expect("Failed to load board from next_move fen");
+                self.displayed_node = Some(id);
+            }
         }
         Command::none()
     }
 
-    fn view(&self) -> iced::Element<'_, Self::Message, Renderer<styles::Theme>> {
+    fn view(&self) -> Element<Message, styles::Theme> {
         let resp = responsive(move |size| {
             let board_width = size.width * 0.75;
             let mut board_col = Column::new().spacing(0).align_items(Alignment::Center);
@@ -184,12 +190,7 @@ impl Application for App {
                         .align_x(alignment::Horizontal::Center)
                         .align_y(alignment::Vertical::Center),
                 )
-                .on_press(Message::Event(Event::Keyboard(
-                    keyboard::Event::KeyPressed {
-                        key_code: keyboard::KeyCode::Left,
-                        modifiers: Modifiers::SHIFT
-                    }
-                )))
+                .on_press(Message::GoPrevMove)
                 .style(styles::ButtonStyle::Normal)
                 // .height(Length::Fill)
                 .width(Length::Fill),
@@ -198,12 +199,7 @@ impl Application for App {
                         .align_x(alignment::Horizontal::Center)
                         .align_y(alignment::Vertical::Center)
                 ) // .height(Length::Fill)
-                .on_press(Message::Event(Event::Keyboard(
-                    keyboard::Event::KeyPressed {
-                        key_code: keyboard::KeyCode::Right,
-                        modifiers: Modifiers::SHIFT
-                    }
-                )))
+                .on_press(Message::GoNextMove)
                 .style(styles::ButtonStyle::Normal)
                 .width(Length::Fill),
             )
@@ -211,14 +207,33 @@ impl Application for App {
             // .spacing(5)
             .align_items(Alignment::End);
 
-            row!(board_col, controls).into()
+            let content = row!(board_col, controls);
+            if let Some(next_opts) = &self.next_move_options {
+                let modal = container("text")
+                    // let modal = container(next_opts).map(|(node, fen)| {}))
+                    .width(300)
+                    .padding(10);
+                return Modal::new(content, modal)
+                    .on_blur(Message::HideNextMoveOptions)
+                    .into();
+            } else {
+                return content.into();
+            }
+            // return Container::new(content)
+            //     .width(Length::Fill)
+            //     .height(Length::Fill)
+            //     .into();
+            // content.into()
         });
-        Container::new(resp)
+        return Container::new(resp)
             .width(Length::Fill)
             .height(Length::Fill)
-            .into()
+            .into();
     }
     fn subscription(&self) -> Subscription<Message> {
-        iced::subscription::events().map(Message::Event)
+        keyboard::on_key_press(|key, modifiers| match key.as_ref() {
+            keyboard::Key::Named(Left) => Some(Message::GoPrevMove),
+            _ => None,
+        })
     }
 }

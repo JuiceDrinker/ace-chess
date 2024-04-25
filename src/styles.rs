@@ -4,7 +4,7 @@ use iced::widget::slider::{Handle, HandleShape};
 use iced::widget::{
     button, checkbox, container, pick_list, radio, scrollable, slider, svg, text, text_input,
 };
-use iced::{application, Color};
+use iced::{application, Border, Color, Shadow};
 
 macro_rules! rgb {
     ($r:expr, $g:expr, $b:expr) => {
@@ -81,8 +81,11 @@ impl button::StyleSheet for Theme {
                 ..Default::default()
             },
             ButtonStyle::Normal => button::Appearance {
-                border_width: 2.,
-                border_color: palette.dark_square,
+                border: Border {
+                    radius: 0.into(),
+                    width: 2.,
+                    color: palette.dark_square,
+                },
                 background: Some(iced::Background::Color(palette.light_square)),
                 text_color: palette.tab_label,
                 ..Default::default()
@@ -93,8 +96,11 @@ impl button::StyleSheet for Theme {
     fn hovered(&self, style: &Self::Style) -> button::Appearance {
         match style {
             ButtonStyle::Normal => button::Appearance {
-                border_width: 2.,
-                border_color: self.palette().dark_square,
+                border: Border {
+                    radius: 0.into(),
+                    width: 2.,
+                    color: self.palette().dark_square,
+                },
                 background: Some(iced::Background::Color(self.palette().dark_square)),
                 text_color: self.palette().label_selected,
                 ..Default::default()
@@ -111,9 +117,16 @@ impl container::StyleSheet for Theme {
         container::Appearance {
             text_color: Some(self.palette().simple_text),
             background: Some(iced::Background::Color(Color::TRANSPARENT)),
-            border_radius: 2.0.into(),
-            border_width: 0.0,
-            border_color: Color::WHITE,
+            border: Border {
+                radius: 2.0.into(),
+                width: 0.0,
+                color: Color::WHITE,
+            },
+            shadow: Shadow {
+                color: Color::WHITE,
+                offset: iced::Vector::new(0.0, 0.0),
+                blur_radius: 0.0.into(),
+            },
         }
     }
 }
@@ -124,9 +137,11 @@ impl text_input::StyleSheet for Theme {
     fn active(&self, _style: &Self::Style) -> text_input::Appearance {
         text_input::Appearance {
             background: iced::Background::Color(self.palette().light_square),
-            border_radius: 1.0.into(),
-            border_width: 1.,
-            border_color: self.palette().dark_square,
+            border: Border {
+                radius: 1.0.into(),
+                width: 1.,
+                color: self.palette().dark_square,
+            },
             icon_color: self.palette().simple_text,
         }
     }
@@ -134,9 +149,11 @@ impl text_input::StyleSheet for Theme {
     fn focused(&self, _style: &Self::Style) -> text_input::Appearance {
         text_input::Appearance {
             background: iced::Background::Color(self.palette().light_square),
-            border_radius: 1.0.into(),
-            border_width: 1.,
-            border_color: self.palette().dark_square,
+            border: Border {
+                radius: 1.0.into(),
+                width: 1.,
+                color: self.palette().dark_square,
+            },
             icon_color: self.palette().simple_text,
         }
     }
@@ -156,9 +173,11 @@ impl text_input::StyleSheet for Theme {
     fn disabled(&self, _style: &Self::Style) -> text_input::Appearance {
         text_input::Appearance {
             background: iced::Background::Color(self.palette().light_square),
-            border_radius: 1.0.into(),
-            border_width: 1.,
-            border_color: self.palette().dark_square,
+            border: Border {
+                radius: 1.0.into(),
+                width: 1.,
+                color: self.palette().dark_square,
+            },
             icon_color: self.palette().simple_text,
         }
     }
@@ -179,17 +198,38 @@ impl svg::StyleSheet for Theme {
 impl scrollable::StyleSheet for Theme {
     type Style = Scrollable;
 
-    fn active(&self, _style: &Self::Style) -> scrollable::Scrollbar {
-        scrollable::Scrollbar {
-            background: Some(iced::Background::Color(self.palette().light_square)),
-            border_radius: 1.0.into(),
-            border_width: 1.,
-            border_color: self.palette().light_square,
-            scroller: scrollable::Scroller {
-                color: self.palette().dark_square,
-                border_radius: 0.0.into(),
-                border_width: 1.,
-                border_color: self.palette().light_square,
+    fn active(&self, _style: &Self::Style) -> scrollable::Appearance {
+        scrollable::Appearance {
+            scrollbar: scrollable::Scrollbar {
+                background: Some(iced::Background::Color(self.palette().light_square)),
+                border: Border {
+                    radius: 1.0.into(),
+                    width: 1.,
+                    color: Color::BLACK,
+                },
+                scroller: scrollable::Scroller {
+                    color: self.palette().dark_square,
+                    border: Border {
+                        radius: 1.0.into(),
+                        width: 1.,
+                        color: self.palette().light_square,
+                    },
+                },
+            },
+            gap: None,
+            container: container::Appearance {
+                text_color: Some(self.palette().simple_text),
+                background: Some(iced::Background::Color(Color::TRANSPARENT)),
+                border: Border {
+                    radius: 2.0.into(),
+                    width: 0.0,
+                    color: Color::WHITE,
+                },
+                shadow: Shadow {
+                    color: Color::WHITE,
+                    offset: iced::Vector::new(0.0, 0.0),
+                    blur_radius: 0.0.into(),
+                },
             },
         }
     }
@@ -198,17 +238,38 @@ impl scrollable::StyleSheet for Theme {
         &self,
         _style: &Self::Style,
         _is_mouse_over_scrollbar: bool,
-    ) -> scrollable::Scrollbar {
-        scrollable::Scrollbar {
-            background: Some(iced::Background::Color(self.palette().light_square)),
-            border_radius: 1.0.into(),
-            border_width: 1.,
-            border_color: self.palette().dark_square,
-            scroller: scrollable::Scroller {
-                color: self.palette().dark_square,
-                border_radius: 1.0.into(),
-                border_width: 1.,
-                border_color: Color::BLACK,
+    ) -> scrollable::Appearance {
+        scrollable::Appearance {
+            scrollbar: scrollable::Scrollbar {
+                background: Some(iced::Background::Color(self.palette().light_square)),
+                border: Border {
+                    radius: 1.0.into(),
+                    width: 1.,
+                    color: Color::BLACK,
+                },
+                scroller: scrollable::Scroller {
+                    color: self.palette().dark_square,
+                    border: Border {
+                        radius: 1.0.into(),
+                        width: 1.,
+                        color: self.palette().dark_square,
+                    },
+                },
+            },
+            gap: None,
+            container: container::Appearance {
+                text_color: Some(self.palette().simple_text),
+                background: Some(iced::Background::Color(Color::TRANSPARENT)),
+                border: Border {
+                    radius: 2.0.into(),
+                    width: 0.0,
+                    color: Color::WHITE,
+                },
+                shadow: Shadow {
+                    color: Color::WHITE,
+                    offset: iced::Vector::new(0.0, 0.0),
+                    blur_radius: 0.0,
+                },
             },
         }
     }
@@ -220,9 +281,11 @@ impl checkbox::StyleSheet for Theme {
     fn active(&self, _style: &Self::Style, _is_checked: bool) -> checkbox::Appearance {
         checkbox::Appearance {
             background: iced::Background::Color(self.palette().light_square),
-            border_radius: 1.0.into(),
-            border_width: 1.,
-            border_color: Color::BLACK,
+            border: Border {
+                radius: 1.0.into(),
+                width: 1.,
+                color: Color::BLACK,
+            },
             icon_color: self.palette().tab_label,
             text_color: Some(self.palette().tab_label),
         }
@@ -231,9 +294,11 @@ impl checkbox::StyleSheet for Theme {
     fn hovered(&self, _style: &Self::Style, _is_checked: bool) -> checkbox::Appearance {
         checkbox::Appearance {
             background: iced::Background::Color(self.palette().dark_square),
-            border_radius: 1.0.into(),
-            border_width: 1.,
-            border_color: Color::BLACK,
+            border: Border {
+                radius: 1.0.into(),
+                width: 1.,
+                color: Color::BLACK,
+            },
             icon_color: self.palette().label_selected,
             text_color: Some(self.palette().label_selected),
         }
@@ -248,9 +313,11 @@ impl pick_list::StyleSheet for Theme {
             text_color: self.palette().tab_label,
             placeholder_color: self.palette().tab_label,
             background: iced::Background::Color(self.palette().light_square),
-            border_radius: 0.5.into(),
-            border_width: 1.,
-            border_color: self.palette().dark_square,
+            border: Border {
+                radius: 0.5.into(),
+                width: 1.,
+                color: self.palette().dark_square,
+            },
             handle_color: self.palette().dark_square,
         }
     }
@@ -260,9 +327,11 @@ impl pick_list::StyleSheet for Theme {
             text_color: self.palette().label_selected,
             placeholder_color: self.palette().label_selected,
             background: iced::Background::Color(self.palette().dark_square),
-            border_radius: 0.5.into(),
-            border_width: 1.,
-            border_color: self.palette().dark_square,
+            border: Border {
+                radius: 0.5.into(),
+                width: 1.,
+                color: self.palette().dark_square,
+            },
             handle_color: self.palette().dark_square,
         }
     }
@@ -275,9 +344,11 @@ impl menu::StyleSheet for Theme {
         menu::Appearance {
             text_color: self.palette().tab_label,
             background: iced::Background::Color(self.palette().light_square),
-            border_radius: 0.3.into(),
-            border_width: 1.,
-            border_color: self.palette().dark_square,
+            border: Border {
+                radius: 0.3.into(),
+                width: 1.,
+                color: self.palette().dark_square,
+            },
             selected_text_color: self.palette().label_selected,
             selected_background: iced::Background::Color(self.palette().dark_square),
         }
