@@ -3,7 +3,7 @@ use common::{board::Board, rank::Rank, square::Square};
 use iced::{
     alignment, executor,
     keyboard::{self},
-    widget::{self, container, responsive, row, Button, Column, Container, Image, Row},
+    widget::{self, container, responsive, row, Button, Column, Container, Image, Row, Text},
     Alignment, Application, Command, Element, Length, Subscription,
 };
 
@@ -81,34 +81,22 @@ impl Application for App {
                     }
                 }
             }
-            Message::GoNextMove => {
-                match self.move_tree.get_next_move(self.displayed_node) {
-                    Ok(NextMoveOptions::Single(id, fen)) => {
-                        self.board =
-                            Board::from_str(&fen).expect("Failed to load board from next_move fen");
-                        self.displayed_node = Some(id);
-                    }
-                    Ok(NextMoveOptions::Multiple(options)) => {
-                        self.next_move_options = Some(options);
-                        return widget::focus_next();
-                        // let (id, _fen) = options.first().unwrap();
-                        // self.board =
-                        //     Board::from_str(self.move_tree.get_tree()[*id].get().fen.as_str())
-                        //         .expect("Failed to load board from node fen");
-                        // self.displayed_node = Some(*id);
-                    }
-                    Err(_) => eprintln!("Could not get next move"),
+            Message::GoNextMove => match self.move_tree.get_next_move(self.displayed_node) {
+                Ok(NextMoveOptions::Single(id, fen)) => {
+                    self.board =
+                        Board::from_str(&fen).expect("Failed to load board from next_move fen");
+                    self.displayed_node = Some(id);
                 }
-            }
-            Message::HideNextMoveOptions => {
-                self.next_move_options = None;
-                return Command::none();
-            }
-            _ => {}
-
+                Ok(NextMoveOptions::Multiple(options)) => {
+                    self.next_move_options = Some(options);
+                    return widget::focus_next();
+                }
+                Err(_) => eprintln!("Could not get next move"),
+            },
             Message::GoToNode(id) => {
                 let fen = self.move_tree.get_fen_for_node(id);
                 self.board = Board::from_str(fen).expect("Failed to load board from next_move fen");
+                self.next_move_options = None;
                 self.displayed_node = Some(id);
             }
         }
@@ -186,7 +174,7 @@ impl Application for App {
             }
             let controls = row!(
                 Button::new(
-                    Container::new("<-")
+                    Container::new(Text::new("<-"))
                         .align_x(alignment::Horizontal::Center)
                         .align_y(alignment::Vertical::Center),
                 )
@@ -195,7 +183,7 @@ impl Application for App {
                 // .height(Length::Fill)
                 .width(Length::Fill),
                 Button::new(
-                    Container::new("->")
+                    Container::new(Text::new("->"))
                         .align_x(alignment::Horizontal::Center)
                         .align_y(alignment::Vertical::Center)
                 ) // .height(Length::Fill)
@@ -209,30 +197,35 @@ impl Application for App {
 
             let content = row!(board_col, controls);
             if let Some(next_opts) = &self.next_move_options {
-                let modal = container("text")
-                    // let modal = container(next_opts).map(|(node, fen)| {}))
-                    .width(300)
-                    .padding(10);
-                return Modal::new(content, modal)
-                    .on_blur(Message::HideNextMoveOptions)
-                    .into();
+                let mut row = Row::new().spacing(2).align_items(Alignment::Center);
+                row = row.extend(next_opts.iter().map(|(node, fen)| {
+                    Button::new(
+                        Container::new(Text::new(fen))
+                            .align_x(alignment::Horizontal::Center)
+                            .align_y(alignment::Vertical::Center),
+                    )
+                    .on_press(Message::GoToNode(*node))
+                    .style(styles::ButtonStyle::Normal)
+                    // .height(Length::Fill)
+                    .width(Length::Fill)
+                    .into()
+                }));
+                let modal = container(row).width(300).padding(10);
+                return Modal::new(content, modal).into();
             } else {
-                return content.into();
+                content.into()
             }
-            // return Container::new(content)
-            //     .width(Length::Fill)
-            //     .height(Length::Fill)
-            //     .into();
-            // content.into()
         });
         return Container::new(resp)
             .width(Length::Fill)
             .height(Length::Fill)
             .into();
     }
+
     fn subscription(&self) -> Subscription<Message> {
-        keyboard::on_key_press(|key, modifiers| match key.as_ref() {
-            keyboard::Key::Named(Left) => Some(Message::GoPrevMove),
+        keyboard::on_key_press(|key, _modifiers| match key.as_ref() {
+            keyboard::Key::Named(keyboard::key::Named::ArrowLeft) => Some(Message::GoPrevMove),
+            keyboard::Key::Named(keyboard::key::Named::ArrowRight) => Some(Message::GoNextMove),
             _ => None,
         })
     }
