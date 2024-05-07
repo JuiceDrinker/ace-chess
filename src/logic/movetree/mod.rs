@@ -9,7 +9,7 @@ use crate::{
     prelude::Result,
 };
 
-use self::treenode::Notation;
+use self::{pgn::AdjacencyList, treenode::Notation};
 // Dont expose this eventually..
 pub use self::treenode::TreeNode;
 
@@ -39,6 +39,9 @@ impl MoveTree {
         self.0[id].get().fen.as_str()
     }
 
+    pub fn get_notation_for_node(&self, id: NodeId) -> &str {
+        &self.0[id].get().notation
+    }
     pub fn get_prev_move(&self, id: NodeId) -> Result<(NodeId, &str)> {
         match id.ancestors(self.get_tree()).nth(1) {
             // 0th value is node itself    ^

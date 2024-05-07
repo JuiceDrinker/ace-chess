@@ -1,5 +1,5 @@
 use crate::{common::file::File, logic::movetree::pgn::STARTING_POSITION_FEN};
-use common::{board::Board, rank::Rank, square::Square};
+use common::{board::Board, color, rank::Rank, square::Square};
 use iced::{
     alignment, executor,
     keyboard::{self},
@@ -172,24 +172,32 @@ impl Application for App {
                 board_col = board_col.push(board_row);
                 board_row = Row::new().spacing(0).align_items(Alignment::Center);
             }
+
+            let current_move_text = self
+                .displayed_node
+                .map_or("", |id| self.move_tree.get_notation_for_node(id));
+
             let controls = row!(
-                Button::new(
-                    Container::new(Text::new("<-"))
-                        .align_x(alignment::Horizontal::Center)
-                        .align_y(alignment::Vertical::Center),
-                )
-                .on_press(Message::GoPrevMove)
-                .style(styles::ButtonStyle::Normal)
-                // .height(Length::Fill)
-                .width(Length::Fill),
-                Button::new(
-                    Container::new(Text::new("->"))
-                        .align_x(alignment::Horizontal::Center)
-                        .align_y(alignment::Vertical::Center)
-                ) // .height(Length::Fill)
-                .on_press(Message::GoNextMove)
-                .style(styles::ButtonStyle::Normal)
-                .width(Length::Fill),
+                row!(
+                    Button::new(
+                        Container::new(Text::new("<-"))
+                            .align_x(alignment::Horizontal::Center)
+                            .align_y(alignment::Vertical::Center),
+                    )
+                    .on_press(Message::GoPrevMove)
+                    .style(styles::ButtonStyle::Normal)
+                    // .height(Length::Fill)
+                    .width(Length::Fill),
+                    Button::new(
+                        Container::new(Text::new("->"))
+                            .align_x(alignment::Horizontal::Center)
+                            .align_y(alignment::Vertical::Center)
+                    ) // .height(Length::Fill)
+                    .on_press(Message::GoNextMove)
+                    .style(styles::ButtonStyle::Normal)
+                    .width(Length::Fill),
+                ),
+                Text::new(current_move_text)
             )
             .width(size.width * 0.3)
             // .spacing(5)

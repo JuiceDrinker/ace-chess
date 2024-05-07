@@ -52,13 +52,13 @@ type Move<'a> = (MoveText<'a>, Option<Comment>, Option<Nag>);
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct AdjacencyList(pub indextree::Arena<TreeNode>);
 impl AdjacencyList {
-    fn new() -> (Self, NodeId) {
-        let mut tree = indextree::Arena::new();
-        let id = tree.new_node(TreeNode::new(
-            "root".to_owned(),
-            STARTING_POSITION_FEN.to_owned(),
-        ));
-        (Self(tree), id)
+    pub fn new() -> Self {
+        Self(indextree::Arena::new())
+    }
+
+    pub fn load(mut self, tree: indextree::Arena<TreeNode>) -> Self {
+        self.0 = tree;
+        self
     }
 
     fn add_node(&mut self, node: TreeNode, parent: Option<NodeId>) -> NodeId {
@@ -137,12 +137,13 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn new() -> Self {
-        let (graph, id) = AdjacencyList::new();
+        let graph = AdjacencyList::new();
+        let root = graph.get_tree_root();
         Self {
             stack: Variation::default(),
             graph,
-            current_key: id,
-            prev_node: id,
+            current_key: root,
+            prev_node: root,
             marker: PhantomData,
         }
     }
@@ -375,25 +376,24 @@ mod test {
         assert_eq!(res.0.count(), 5);
     }
 
-    // #[test]
-    // fn debug() {
-    //     let pgn = Parser::new();
-    //     let res = pgn
-    //         .parse(
-    //             "1. e4 e5 2. Nf3 Nc6 3. Bb5 {This opening is called the Ruy Lopez.} 3... a6
-    //                  4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 Nbd7
-    // 11. c4 c6 12. cxb5 axb5 13. Nc3 Bb7 14. Bg5 b4 15. Nb1 h6 16. Bh4 c5 17. dxe5
-    //             Nxe4 18. Bxe7 Qxe7 19. exd6 Qf6 20. Nbd2 Nxd6 21. Nc4 Nxc4 22. Bxc4 Nb6
-    //             23. Ne5 Rae8 24. Bxf7+ Rxf7 25. Nxf7 Rxe1+ 26. Qxe1 Kxf7 27. Qe3 Qg5 28. Qxg5
-    //             hxg5 29. b3 Ke6 30. a3 Kd6 31. axb4 cxb4 32. Ra5 Nd5 33. f3 Bc8 34. Kf2 Bf5
-    //             35. Ra7 g6 36. Ra6+ Kc5 37. Ke1 Nf4 38. g3 Nxh3 39. Kd2 Kb5 40. Rd6 Kc5 41. Ra6
-    //             Nf2 42. g4 Bd3 43. Re6
-    //     1/2-1/2",
-    //         )
-    //         .unwrap();
-    //     dbg!(&res);
-    //     assert_eq!(res.0.count(), 5);
-    // }
+    #[test]
+    fn debug() {
+        let pgn = Parser::new();
+        let res = pgn
+            .parse(
+                "1. e4 e5 2. Nf3 Nc6 3. Bb5 {This opening is called the Ruy Lopez.} 3... a6
+                     4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 Nbd7
+    11. c4 c6 12. cxb5 axb5 13. Nc3 Bb7 14. Bg5 b4 15. Nb1 h6 16. Bh4 c5 17. dxe5
+                Nxe4 18. Bxe7 Qxe7 19. exd6 Qf6 20. Nbd2 Nxd6 21. Nc4 Nxc4 22. Bxc4 Nb6
+                23. Ne5 Rae8 24. Bxf7+ Rxf7 25. Nxf7 Rxe1+ 26. Qxe1 Kxf7 27. Qe3 Qg5 28. Qxg5
+                hxg5 29. b3 Ke6 30. a3 Kd6 31. axb4 cxb4 32. Ra5 Nd5 33. f3 Bc8 34. Kf2 Bf5
+                35. Ra7 g6 36. Ra6+ Kc5 37. Ke1 Nf4 38. g3 Nxh3 39. Kd2 Kb5 40. Rd6 Kc5 41. Ra6
+                Nf2 42. g4 Bd3 43. Re6
+        1/2-1/2",
+            )
+            .unwrap();
+        assert_eq!(res.0.count(), 5);
+    }
 
     #[test]
     fn next_fen() {

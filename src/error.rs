@@ -9,6 +9,7 @@ pub enum Error {
     NoPrevMove,
     NoNextMove,
     OwnPieceOnSquare,
+    InvalidPgn { pgn: String },
     ParseError(ParseKind),
 }
 
