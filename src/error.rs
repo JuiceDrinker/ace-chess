@@ -11,6 +11,7 @@ pub enum Error {
     OwnPieceOnSquare,
     InvalidPgn { pgn: String },
     ParseError(ParseKind),
+    PgnGeneration,
 }
 
 #[derive(PartialEq, Debug, Clone)]

@@ -1,5 +1,5 @@
 use crate::{common::file::File, logic::movetree::pgn::STARTING_POSITION_FEN};
-use common::{board::Board, color, rank::Rank, square::Square};
+use common::{board::Board, rank::Rank, square::Square};
 use iced::{
     alignment, executor,
     keyboard::{self},
@@ -173,10 +173,6 @@ impl Application for App {
                 board_row = Row::new().spacing(0).align_items(Alignment::Center);
             }
 
-            let current_move_text = self
-                .displayed_node
-                .map_or("", |id| self.move_tree.get_notation_for_node(id));
-
             let controls = row!(
                 row!(
                     Button::new(
@@ -197,7 +193,7 @@ impl Application for App {
                     .style(styles::ButtonStyle::Normal)
                     .width(Length::Fill),
                 ),
-                Text::new(current_move_text)
+                Text::new(dbg!(self.move_tree.generate_pgn()))
             )
             .width(size.width * 0.3)
             // .spacing(5)

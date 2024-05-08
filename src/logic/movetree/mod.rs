@@ -9,7 +9,7 @@ use crate::{
     prelude::Result,
 };
 
-use self::{pgn::AdjacencyList, treenode::Notation};
+use self::treenode::Notation;
 // Dont expose this eventually..
 pub use self::treenode::TreeNode;
 
@@ -25,6 +25,17 @@ pub struct MoveTree(pub Arena<TreeNode>);
 impl MoveTree {
     pub fn get_tree(&self) -> &Arena<TreeNode> {
         &self.0
+    }
+
+    pub fn generate_pgn(&self) -> String {
+        let mut pgn = String::from("");
+
+        for node in self.get_tree().iter() {
+            dbg!("going in here");
+            pgn.push_str(&node.get().notation);
+        }
+
+        pgn
     }
 
     pub fn get_tree_roots(&self) -> Vec<NodeId> {
