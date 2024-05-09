@@ -193,7 +193,7 @@ impl Application for App {
                     .style(styles::ButtonStyle::Normal)
                     .width(Length::Fill),
                 ),
-                Text::new(dbg!(self.move_tree.generate_pgn()))
+                Text::new(self.move_tree.generate_pgn())
             )
             .width(size.width * 0.3)
             // .spacing(5)

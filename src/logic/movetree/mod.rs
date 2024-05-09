@@ -1,10 +1,12 @@
 pub mod pgn;
 pub mod treenode;
 
+use std::str::FromStr;
+
 use indextree::{Arena, NodeId};
 
 use crate::{
-    common::{board::Board, r#move::Move},
+    common::{board::Board, color::Color, r#move::Move},
     error::Error,
     prelude::Result,
 };
@@ -29,9 +31,11 @@ impl MoveTree {
 
     pub fn generate_pgn(&self) -> String {
         let mut pgn = String::from("");
-
         for node in self.get_tree().iter() {
-            dbg!("going in here");
+            let board = Board::from_str(&node.get().fen).unwrap();
+            if board.side_to_move == Color::Black {
+                pgn.push_str(&node.get().get_full_moves());
+            }
             pgn.push_str(&node.get().notation);
         }
 
