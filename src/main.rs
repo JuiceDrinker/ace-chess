@@ -173,33 +173,33 @@ impl Application for App {
                 board_row = Row::new().spacing(0).align_items(Alignment::Center);
             }
 
-            let controls = row!(
-                row!(
-                    Button::new(
-                        Container::new(Text::new("<-"))
-                            .align_x(alignment::Horizontal::Center)
-                            .align_y(alignment::Vertical::Center),
-                    )
-                    .on_press(Message::GoPrevMove)
-                    .style(styles::ButtonStyle::Normal)
-                    // .height(Length::Fill)
-                    .width(Length::Fill),
-                    Button::new(
-                        Container::new(Text::new("->"))
-                            .align_x(alignment::Horizontal::Center)
-                            .align_y(alignment::Vertical::Center)
-                    ) // .height(Length::Fill)
-                    .on_press(Message::GoNextMove)
-                    .style(styles::ButtonStyle::Normal)
-                    .width(Length::Fill),
-                ),
-                Text::new(self.move_tree.generate_pgn())
-            )
-            .width(size.width * 0.3)
-            // .spacing(5)
-            .align_items(Alignment::End);
+            // let controls = row!(
+            //     row!(
+            //         Button::new(
+            //             Container::new(Text::new("<-"))
+            //                 .align_x(alignment::Horizontal::Center)
+            //                 .align_y(alignment::Vertical::Center),
+            //         )
+            //         .on_press(Message::GoPrevMove)
+            //         .style(styles::ButtonStyle::Normal)
+            //         // .height(Length::Fill)
+            //         .width(Length::Fill),
+            //         Button::new(
+            //             Container::new(Text::new("->"))
+            //                 .align_x(alignment::Horizontal::Center)
+            //                 .align_y(alignment::Vertical::Center)
+            //         ) // .height(Length::Fill)
+            //         .on_press(Message::GoNextMove)
+            //         .style(styles::ButtonStyle::Normal)
+            //         .width(Length::Fill),
+            //     ),
+            let move_text = row!(Text::new(self.move_tree.generate_pgn()))
+                .width(size.width * 0.3)
+                // .spacing(5)
+                .align_items(Alignment::End);
 
-            let content = row!(board_col, controls);
+            let content = row!(board_col, move_text);
+
             if let Some(next_opts) = &self.next_move_options {
                 let mut row = Row::new().spacing(2).align_items(Alignment::Center);
                 row = row.extend(next_opts.iter().map(|(node, fen)| {

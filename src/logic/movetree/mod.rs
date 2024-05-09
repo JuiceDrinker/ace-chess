@@ -34,9 +34,9 @@ impl MoveTree {
         for node in self.get_tree().iter() {
             let board = Board::from_str(&node.get().fen).unwrap();
             if board.side_to_move == Color::Black {
-                pgn.push_str(&node.get().get_full_moves());
+                pgn.push_str(&format!(" {}. ", &node.get().get_full_moves()));
             }
-            pgn.push_str(&node.get().notation);
+            pgn.push_str(&format!(" {} ", &node.get().notation));
         }
 
         pgn
