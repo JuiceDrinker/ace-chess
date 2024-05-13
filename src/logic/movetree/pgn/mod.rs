@@ -148,7 +148,12 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn add_node(&mut self, (move_text, _, _): Move, parent: Option<NodeId>) -> NodeId {
+    fn add_node(
+        &mut self,
+        (move_text, _, _): Move,
+        parent: Option<NodeId>,
+        depth: usize,
+    ) -> NodeId {
         let starting_position = STARTING_POSITION_FEN.to_string();
         let prev_fen = match parent {
             Some(id) => self.graph.get_fen(id),
@@ -157,7 +162,7 @@ impl<'a> Parser<'a> {
         let next_fen = Parser::generate_next_fen(prev_fen, move_text);
         let id = self
             .graph
-            .add_node(TreeNode::new(move_text.to_owned(), next_fen), parent);
+            .add_node(TreeNode::new(move_text.to_owned(), next_fen, depth), parent);
         if let Some(parent_id) = parent {
             parent_id.append(id, &mut self.graph.0);
         }
@@ -187,6 +192,8 @@ impl<'a> Parser<'a> {
     fn move_entry(&mut self, input: &'a str) -> IResult<&'a str, &'a str, ErrorTree<&'a str>> {
         let mut left_to_parse = input.trim_start();
         let mut parent_key: Option<NodeId> = None;
+        let mut depth: Option<usize> = None;
+
         if left_to_parse.starts_with("1-0")
             || input.trim_start().starts_with("1-0")
             || input.trim_start().starts_with("1/2-1/2")
@@ -201,6 +208,7 @@ impl<'a> Parser<'a> {
             self.stack.push(parent);
             parent_key = Some(parent);
             left_to_parse = after_start_of_variation;
+            depth = Some(self.graph.0[parent].get().depth.saturating_add(1));
         } else if let Some(after_end_of_variation) = left_to_parse.strip_prefix(')') {
             // When we get done with a variation we need to pop off the stack
             if let Some(popped) = self.stack.pop() {
@@ -244,11 +252,19 @@ impl<'a> Parser<'a> {
             nag,
         );
 
+        dbg!(depth);
         self.add_node(
             parsed_move,
             match parent_key {
                 Some(k) => Some(k),
                 None => Some(self.prev_node),
+            },
+            match depth {
+                Some(d) => d,
+                None => match parent_key {
+                    Some(key) => self.graph.0[key].get().depth,
+                    None => 0,
+                },
             },
         );
         Ok((rest.trim_start(), rest.trim_start()))

@@ -173,26 +173,6 @@ impl Application for App {
                 board_row = Row::new().spacing(0).align_items(Alignment::Center);
             }
 
-            // let controls = row!(
-            //     row!(
-            //         Button::new(
-            //             Container::new(Text::new("<-"))
-            //                 .align_x(alignment::Horizontal::Center)
-            //                 .align_y(alignment::Vertical::Center),
-            //         )
-            //         .on_press(Message::GoPrevMove)
-            //         .style(styles::ButtonStyle::Normal)
-            //         // .height(Length::Fill)
-            //         .width(Length::Fill),
-            //         Button::new(
-            //             Container::new(Text::new("->"))
-            //                 .align_x(alignment::Horizontal::Center)
-            //                 .align_y(alignment::Vertical::Center)
-            //         ) // .height(Length::Fill)
-            //         .on_press(Message::GoNextMove)
-            //         .style(styles::ButtonStyle::Normal)
-            //         .width(Length::Fill),
-            //     ),
             let move_text = row!(Text::new(self.move_tree.generate_pgn()))
                 .width(size.width * 0.3)
                 // .spacing(5)

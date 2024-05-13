@@ -3,7 +3,7 @@ pub mod treenode;
 
 use std::str::FromStr;
 
-use indextree::{Arena, NodeId};
+use indextree::{Arena, Node, NodeId};
 
 use crate::{
     common::{board::Board, color::Color, r#move::Move},
@@ -31,19 +31,35 @@ impl MoveTree {
 
     pub fn generate_pgn(&self) -> String {
         let mut pgn = String::from("");
+        // let mut prev_node: Option<&Node<TreeNode>> = None;
+
         for node in self.get_tree().iter() {
             let board = Board::from_str(&node.get().fen).unwrap();
-            if board.side_to_move == Color::Black {
+
+            if let Some(parent) = node.parent() {
+                if self.get_tree()[parent].get().depth != node.get().depth {
+                    pgn.push_str(" ( ");
+                    if board.side_to_move == Color::White {
+                        pgn.push_str(&format!(" {}... ", &node.get().get_full_moves()));
+                    } else {
+                        pgn.push_str(&format!(" {}. ", &node.get().get_full_moves()));
+                    }
+                }
+            } else if board.side_to_move == Color::Black {
                 pgn.push_str(&format!(" {}. ", &node.get().get_full_moves()));
             }
             pgn.push_str(&format!(" {} ", &node.get().notation));
+
+            if node.get().depth != 0 && node.first_child().is_none() {
+                pgn.push_str(" ) ");
+            }
         }
 
         pgn
     }
 
     pub fn get_tree_roots(&self) -> Vec<NodeId> {
-        self.0
+        self.get_tree()
             .iter()
             .filter(|node| node.parent().is_none())
             .map(|node| self.0.get_node_id(node).unwrap())
@@ -120,21 +136,29 @@ impl MoveTree {
                     None => self.0.new_node(TreeNode::new(
                         r#move.as_notation(board),
                         board.clone().update(r#move).to_string(),
+                        0,
                     )),
                 }
             }
-            Some(node) => {
-                if let Some(child) = node
+            Some(parent_node) => {
+                // if move already exists in tree, don't duplicate
+                if let Some(child) = parent_node
                     .children(self.get_tree())
                     .find(|n| self.get_tree()[*n].get().notation == r#move.as_notation(board))
                 {
                     child
                 } else {
+                    // If my parent already has a child I should have depth +=1 of my parent
+                    // If I am first child I should have same depth as my parent
                     let id = self.0.new_node(TreeNode::new(
                         r#move.as_notation(board),
                         board.clone().update(r#move).to_string(),
+                        match parent_node.children(self.get_tree()).count() > 0 {
+                            true => self.get_tree()[parent_node].get().depth + 1,
+                            false => self.get_tree()[parent_node].get().depth,
+                        },
                     ));
-                    node.append(id, &mut self.0);
+                    parent_node.append(id, &mut self.0);
                     id
                 }
             }

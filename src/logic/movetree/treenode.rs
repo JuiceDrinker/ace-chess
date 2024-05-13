@@ -11,11 +11,16 @@ pub type Fen = String;
 pub struct TreeNode {
     pub notation: Notation,
     pub fen: Fen,
+    pub depth: usize,
 }
 
 impl TreeNode {
-    pub fn new(notation: Notation, fen: Fen) -> Self {
-        TreeNode { notation, fen }
+    pub fn new(notation: Notation, fen: Fen, depth: usize) -> Self {
+        TreeNode {
+            notation,
+            fen,
+            depth,
+        }
     }
 
     #[allow(dead_code)]
