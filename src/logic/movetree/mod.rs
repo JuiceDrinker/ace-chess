@@ -1,7 +1,7 @@
 pub mod pgn;
 pub mod treenode;
 
-use std::str::FromStr;
+use std::{collections::HashSet, fmt::Display, hash::Hash, str::FromStr};
 
 use indextree::{Arena, Node, NodeId};
 
@@ -29,40 +29,11 @@ impl MoveTree {
         &self.0
     }
 
-    pub fn generate_pgn(&self) -> String {
-        let mut pgn = String::from("");
-        // let mut prev_node: Option<&Node<TreeNode>> = None;
-
-        for node in self.get_tree().iter() {
-            let board = Board::from_str(&node.get().fen).unwrap();
-
-            if let Some(parent) = node.parent() {
-                if self.get_tree()[parent].get().depth != node.get().depth {
-                    pgn.push_str(" ( ");
-                    if board.side_to_move == Color::White {
-                        pgn.push_str(&format!(" {}... ", &node.get().get_full_moves()));
-                    } else {
-                        pgn.push_str(&format!(" {}. ", &node.get().get_full_moves()));
-                    }
-                }
-            } else if board.side_to_move == Color::Black {
-                pgn.push_str(&format!(" {}. ", &node.get().get_full_moves()));
-            }
-            pgn.push_str(&format!(" {} ", &node.get().notation));
-
-            if node.get().depth != 0 && node.first_child().is_none() {
-                pgn.push_str(" ) ");
-            }
-        }
-
-        pgn
-    }
-
     pub fn get_tree_roots(&self) -> Vec<NodeId> {
         self.get_tree()
             .iter()
             .filter(|node| node.parent().is_none())
-            .map(|node| self.0.get_node_id(node).unwrap())
+            .map(|node| self.get_tree().get_node_id(node).unwrap())
             .collect()
     }
 
@@ -162,6 +133,89 @@ impl MoveTree {
                     id
                 }
             }
+        }
+    }
+}
+
+pub trait GeneratePgn {
+    fn generate_pgn(&self, opts: GenerationType) -> String;
+    fn generate_pgn_from_node(&self, root_key: NodeId) -> String;
+    fn generate_pgn_for_node(&self, node: NodeId) -> String;
+}
+
+pub enum GenerationType {
+    WholeTree,
+    FromNode(NodeId),
+}
+impl GeneratePgn for MoveTree {
+    fn generate_pgn(&self, opts: GenerationType) -> String {
+        // dbg!(self.get_tree());
+        // if let Some(root) = root_key.or_else(|| self.get_tree_roots().first().copied()) {}
+        match opts {
+            GenerationType::WholeTree => {
+                if let Some(root) = self.get_tree_roots().first().copied() {
+                    self.generate_pgn_from_node(root)
+                } else {
+                    String::from("")
+                }
+            }
+            GenerationType::FromNode(node) => self.generate_pgn_from_node(node),
+        }
+    }
+
+    fn generate_pgn_from_node(&self, root: NodeId) -> String {
+        // // Node IDs (for now) are in insertion order, so we should be able to assume the first
+        // // one is the mainline
+        if root.children(self.get_tree()).count() == 0 {
+            self.generate_pgn_for_node(root)
+        } else {
+            let mut pgn = String::from("");
+            let mut pgn_for_node = self.generate_pgn_for_node(root);
+            let mut branches = root.children(self.get_tree());
+            let mainline = branches.next().unwrap();
+            for branch in branches {
+                if Board::from_str(self.get_fen_for_node(branch))
+                    .unwrap()
+                    .side_to_move
+                    == Color::White
+                {
+                    pgn.push_str(&format!(
+                        " ({}... ",
+                        self.get_tree().get(root).unwrap().get().get_full_moves()
+                    ));
+                } else {
+                    pgn.push_str(&format!(
+                        " ({}. ",
+                        self.get_tree().get(root).unwrap().get().get_full_moves()
+                    ));
+                }
+                pgn_for_node.push_str(&format!(
+                    "{})",
+                    &self.generate_pgn(GenerationType::FromNode(branch))
+                ));
+            }
+            pgn_for_node.push_str(&format!(
+                " {} ",
+                &self.generate_pgn(GenerationType::FromNode(mainline))
+            ));
+            pgn.push_str(&pgn_for_node);
+            pgn
+        }
+    }
+
+    fn generate_pgn_for_node(&self, node: NodeId) -> String {
+        if Board::from_str(self.get_fen_for_node(node))
+            .unwrap()
+            .side_to_move
+            == Color::Black
+        {
+            format!(
+                " {}. {}",
+                self.get_tree().get(node).unwrap().get().get_full_moves(),
+                self.get_notation_for_node(node)
+            )
+        } else {
+            format!(" {} ", self.get_notation_for_node(node))
         }
     }
 }
