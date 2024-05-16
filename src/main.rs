@@ -7,7 +7,7 @@ use iced::{
     Alignment, Application, Command, Element, Length, Subscription,
 };
 
-use logic::movetree::{GeneratePgn, GenerationType, MoveTree, NextMoveOptions};
+use logic::movetree::{GeneratePgn, MoveTree, NextMoveOptions};
 use message::Message;
 use prelude::Result;
 use std::str::FromStr;
@@ -173,12 +173,10 @@ impl Application for App {
                 board_row = Row::new().spacing(0).align_items(Alignment::Center);
             }
 
-            let move_text = row!(Text::new(
-                self.move_tree.generate_pgn(GenerationType::WholeTree)
-            ))
-            .width(size.width * 0.3)
-            // .spacing(5)
-            .align_items(Alignment::End);
+            let move_text = row!(Text::new(self.move_tree.generate_pgn()))
+                .width(size.width * 0.3)
+                // .spacing(5)
+                .align_items(Alignment::End);
 
             let content = row!(board_col, move_text);
 

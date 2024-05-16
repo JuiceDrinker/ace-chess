@@ -48,7 +48,7 @@ impl Move {
             match piece {
                 Piece::Pawn => {
                     move_text = if is_capture {
-                        format!("{from}x{to}")
+                        format!("{}x{}", from.file().as_str(), to)
                     } else {
                         format!("{to}")
                     }
