@@ -22,7 +22,7 @@ pub enum NextMoveOptions {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct MoveTree(pub Arena<TreeNode>);
+pub struct MoveTree(pub Arena<TreeNode>, HashSet<NodeId>);
 
 impl MoveTree {
     pub fn get_tree(&self) -> &Arena<TreeNode> {
@@ -50,6 +50,13 @@ impl MoveTree {
             Some(prev_id) => Ok((prev_id, self.get_fen_for_node(prev_id))),
             None => Err(Error::NoPrevMove),
         }
+    }
+
+    pub fn is_node_mainline(&self, id: NodeId) -> bool {
+        if let Some(p) = self.get_tree().get(id).unwrap().parent() {
+            return self.get_tree()[p].get().depth == self.get_tree()[id].get().depth;
+        }
+        false
     }
 
     pub fn get_next_move(&self, node: Option<NodeId>) -> Result<NextMoveOptions> {
@@ -139,7 +146,8 @@ impl MoveTree {
 
 pub trait GeneratePgn {
     fn generate_pgn(&self, opts: GenerationType) -> String;
-    fn generate_pgn_from_node(&self, root_key: NodeId) -> String;
+    fn generate_pgn_from_node(&self, root: NodeId, visited: &mut HashSet<NodeId>)
+        -> Option<String>;
     fn generate_pgn_for_node(&self, node: NodeId) -> String;
 }
 
@@ -154,53 +162,124 @@ impl GeneratePgn for MoveTree {
         match opts {
             GenerationType::WholeTree => {
                 if let Some(root) = self.get_tree_roots().first().copied() {
-                    self.generate_pgn_from_node(root)
+                    self.generate_pgn_from_node(root, &mut HashSet::new())
+                        .unwrap_or(String::from(""))
                 } else {
                     String::from("")
                 }
             }
-            GenerationType::FromNode(node) => self.generate_pgn_from_node(node),
+            GenerationType::FromNode(node) => self
+                .generate_pgn_from_node(node, &mut HashSet::new())
+                .unwrap_or(String::from("")),
         }
     }
 
-    fn generate_pgn_from_node(&self, root: NodeId) -> String {
-        // // Node IDs (for now) are in insertion order, so we should be able to assume the first
-        // // one is the mainline
-        if root.children(self.get_tree()).count() == 0 {
-            self.generate_pgn_for_node(root)
-        } else {
-            let mut pgn = String::from("");
-            let mut pgn_for_node = self.generate_pgn_for_node(root);
-            let mut branches = root.children(self.get_tree());
-            let mainline = branches.next().unwrap();
-            for branch in branches {
-                if Board::from_str(self.get_fen_for_node(branch))
-                    .unwrap()
-                    .side_to_move
-                    == Color::White
-                {
-                    pgn.push_str(&format!(
-                        " ({}... ",
-                        self.get_tree().get(root).unwrap().get().get_full_moves()
-                    ));
-                } else {
-                    pgn.push_str(&format!(
-                        " ({}. ",
-                        self.get_tree().get(root).unwrap().get().get_full_moves()
-                    ));
+    fn generate_pgn_from_node(
+        &self,
+        root: NodeId,
+        visited: &mut HashSet<NodeId>,
+    ) -> Option<String> {
+        // Node IDs (for now) are in insertion order, so we should be able to assume the first
+        //  one is the mainline
+        if HashSet::insert(visited, root) {
+            match (
+                root.children(self.get_tree()).count() == 0,
+                root.following_siblings(self.get_tree()).skip(1).count() == 0,
+            ) {
+                (false, false) => {
+                    let mut pgn_for_node = self.generate_pgn_for_node(root);
+                    if self.is_node_mainline(root) {
+                        root.following_siblings(self.get_tree())
+                            .skip(1)
+                            .for_each(|sibling| {
+                                if let Some(pgn_for_sibling) =
+                                    self.generate_pgn_from_node(sibling, visited)
+                                {
+                                    pgn_for_node.push_str(&format!("( {} )", pgn_for_sibling));
+                                }
+                            });
+                    }
+                    if let Some(pgn_for_children) = &self.generate_pgn_from_node(
+                        root.children(self.get_tree()).next().unwrap(),
+                        visited,
+                    ) {
+                        pgn_for_node.push_str(&format!(" {} ", pgn_for_children));
+                    }
+                    Some(pgn_for_node)
                 }
-                pgn_for_node.push_str(&format!(
-                    "{})",
-                    &self.generate_pgn(GenerationType::FromNode(branch))
-                ));
+                // Only have children
+                (false, true) => {
+                    let mut pgn_for_node = self.generate_pgn_for_node(root);
+
+                    if let Some(pgn_for_children) = &self.generate_pgn_from_node(
+                        root.children(self.get_tree()).next().unwrap(),
+                        visited,
+                    ) {
+                        pgn_for_node.push_str(&format!(" {} ", pgn_for_children));
+                    }
+                    Some(pgn_for_node)
+                }
+                // No children, yes siblings
+                (true, false) => {
+                    let mut pgn_for_node = self.generate_pgn_for_node(root);
+                    if self.is_node_mainline(root) {
+                        root.following_siblings(self.get_tree())
+                            .skip(1)
+                            .for_each(|sibling| {
+                                if let Some(pgn_for_sibling) =
+                                    self.generate_pgn_from_node(sibling, visited)
+                                {
+                                    pgn_for_node.push_str(&format!("( {} )", pgn_for_sibling));
+                                }
+                            });
+                    }
+
+                    Some(pgn_for_node)
+                }
+                // No children, no siblings
+                (true, true) => Some(self.generate_pgn_for_node(root)),
             }
-            pgn_for_node.push_str(&format!(
-                " {} ",
-                &self.generate_pgn(GenerationType::FromNode(mainline))
-            ));
-            pgn.push_str(&pgn_for_node);
-            pgn
+        } else {
+            None
         }
+        // if root.children(self.get_tree()).count() == 0
+        //     && root.following_siblings(self.get_tree()).skip(1).count() == 0
+        // {
+        //     self.generate_pgn_for_node(root)
+        // } else {
+        //     let mut pgn = String::from("");
+        //     let mut pgn_for_node = self.generate_pgn_for_node(root);
+        //     let mut branches = root.children(self.get_tree());
+        //     let mainline = branches.next().unwrap();
+        //     dbg!(self.get_notation_for_node(mainline));
+        //     for branch in branches {
+        //         if Board::from_str(self.get_fen_for_node(branch))
+        //             .unwrap()
+        //             .side_to_move
+        //             == Color::White
+        //         {
+        //             pgn.push_str(&format!(
+        //                 " ({}... ",
+        //                 self.get_tree().get(root).unwrap().get().get_full_moves()
+        //             ));
+        //         } else {
+        //             pgn.push_str(&format!(
+        //                 " ({}. ",
+        //                 self.get_tree().get(root).unwrap().get().get_full_moves()
+        //             ));
+        //         }
+        //         pgn_for_node.push_str(&format!(
+        //             "{})",
+        //             &self.generate_pgn(GenerationType::FromNode(branch))
+        //         ));
+        //     }
+        //     pgn_for_node.push_str(&format!(
+        //         " {} ",
+        //         &self.generate_pgn(GenerationType::FromNode(mainline))
+        //     ));
+        //     pgn.push_str(&pgn_for_node);
+        //     pgn
+        // }
     }
 
     fn generate_pgn_for_node(&self, node: NodeId) -> String {
