@@ -56,11 +56,6 @@ impl AdjacencyList {
         Self(indextree::Arena::new())
     }
 
-    pub fn load(mut self, tree: indextree::Arena<TreeNode>) -> Self {
-        self.0 = tree;
-        self
-    }
-
     fn add_node(&mut self, node: TreeNode, parent: Option<NodeId>) -> NodeId {
         let new_id = self.0.new_node(node);
         if let Some(id) = parent {

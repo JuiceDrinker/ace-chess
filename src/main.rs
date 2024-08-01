@@ -1,13 +1,13 @@
 use crate::{common::file::File, logic::movetree::pgn::STARTING_POSITION_FEN};
 use common::{board::Board, rank::Rank, square::Square};
 use iced::{
-    alignment, executor,
-    keyboard::{self},
+    alignment, clipboard, executor,
+    keyboard::{self, Modifiers},
     widget::{self, container, responsive, row, Button, Column, Container, Image, Row, Text},
     Alignment, Application, Command, Element, Length, Subscription,
 };
 
-use logic::movetree::{GeneratePgn, MoveTree, NextMoveOptions};
+use logic::movetree::{self, GeneratePgn, MoveTree, NextMoveOptions};
 use message::Message;
 use prelude::Result;
 use std::str::FromStr;
@@ -98,6 +98,13 @@ impl Application for App {
                 self.board = Board::from_str(fen).expect("Failed to load board from next_move fen");
                 self.next_move_options = None;
                 self.displayed_node = Some(id);
+            }
+            Message::LoadPgn(pgn) => {
+                dbg!("Im here I swear");
+                if let Ok(parsed) = movetree::pgn::Parser::new().parse(&pgn) {
+                    dbg!("Im here I swear 2 ");
+                    self.move_tree.load(parsed.0)
+                }
             }
         }
         Command::none()
@@ -207,9 +214,25 @@ impl Application for App {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        keyboard::on_key_press(|key, _modifiers| match key.as_ref() {
-            keyboard::Key::Named(keyboard::key::Named::ArrowLeft) => Some(Message::GoPrevMove),
-            keyboard::Key::Named(keyboard::key::Named::ArrowRight) => Some(Message::GoNextMove),
+        keyboard::on_key_press(|key, modifiers| match (key.as_ref(), modifiers) {
+            (keyboard::Key::Named(keyboard::key::Named::ArrowLeft), _) => Some(Message::GoPrevMove),
+            (keyboard::Key::Named(keyboard::key::Named::ArrowRight), _) => {
+                Some(Message::GoNextMove)
+            }
+            (keyboard::Key::Character(_v), m) => {
+                dbg!("wtf");
+                dbg!(m);
+                if m.shift() {
+                    dbg!("wtf");
+                    let x = clipboard::read(|pgn| {
+                        dbg!("wtf");
+                        pgn.map(Message::LoadPgn);
+                        dbg!("wtf2");
+                    });
+                    dbg!(x);
+                }
+                None
+            }
             _ => None,
         })
     }

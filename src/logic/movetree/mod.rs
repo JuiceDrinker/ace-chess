@@ -1,15 +1,14 @@
 pub mod pgn;
 pub mod treenode;
 
-use std::{collections::HashSet, fmt::Display, hash::Hash, str::FromStr};
-
-use indextree::{Arena, Node, NodeId};
+use std::{collections::HashSet, str::FromStr};
 
 use crate::{
     common::{board::Board, color::Color, r#move::Move},
     error::Error,
     prelude::Result,
 };
+use indextree::{Arena, NodeId};
 
 use self::treenode::Notation;
 // Dont expose this eventually..
@@ -22,9 +21,12 @@ pub enum NextMoveOptions {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct MoveTree(pub Arena<TreeNode>, HashSet<NodeId>);
+pub struct MoveTree(pub Arena<TreeNode>);
 
 impl MoveTree {
+    pub fn load(&mut self, graph: Arena<TreeNode>) {
+        self.0 = graph;
+    }
     pub fn get_tree(&self) -> &Arena<TreeNode> {
         &self.0
     }
@@ -163,11 +165,11 @@ impl MoveTree {
         }
     }
     pub fn does_node_have_children(&self, id: NodeId) -> bool {
-        id.children(self.get_tree()).count() > 0
+        id.children(self.get_tree()).next().is_some()
     }
     pub fn does_node_have_siblings(&self, id: NodeId) -> bool {
         // Skipping first node because first element is this node itself
-        id.following_siblings(self.get_tree()).skip(1).count() > 0
+        id.following_siblings(self.get_tree()).nth(1).is_some()
     }
 }
 
