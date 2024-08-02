@@ -1,7 +1,9 @@
 use std::ops::Not;
 
+use serde::Serialize;
+
 /// Represent a color in Chess game.
-#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Debug, Serialize)]
 pub enum Color {
     White,
     Black,

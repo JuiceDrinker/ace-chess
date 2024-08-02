@@ -7,7 +7,7 @@ use iced::{
     Alignment, Application, Command, Element, Length, Subscription,
 };
 
-use logic::movetree::{self, GeneratePgn, MoveTree, NextMoveOptions};
+use logic::movetree::{self, MoveTree, NextMoveOptions};
 use message::Message;
 use prelude::Result;
 use std::str::FromStr;
