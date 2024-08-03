@@ -1,4 +1,5 @@
-use crate::{common::file::File, logic::movetree::pgn::STARTING_POSITION_FEN};
+// use crate::{common::file::File, logic::movetree::pgn::STARTING_POSITION_FEN};
+use crate::common::file::File;
 use common::{board::Board, rank::Rank, square::Square};
 use iced::{
     alignment, clipboard, executor,
@@ -49,64 +50,64 @@ impl Application for App {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        match message {
-            Message::SelectSquare(s) => self.selected_square = Some(s),
-            Message::MakeMove(from, to, displayed_node) => {
-                let m = common::r#move::Move::new(from, to);
-                if self.board.is_legal(m) {
-                    let new_node = self.move_tree.add_new_move(m, displayed_node, &self.board);
-                    self.board = self.board.update(m);
-                    self.selected_square = None;
-                    self.displayed_node = Some(new_node);
-                } else if self.board.color_on_is(to, self.board.side_to_move()) {
-                    self.selected_square = Some(to);
-                } else {
-                    self.selected_square = None;
-                }
-            }
-            Message::GoPrevMove => {
-                if let Some(n) = self.displayed_node {
-                    match self.move_tree.get_prev_move(n) {
-                        Ok((id, fen)) => {
-                            self.board = Board::from_str(fen)
-                                .expect("Failed to load board from prev_move fen");
-                            self.displayed_node = Some(id);
-                        }
-                        Err(e) => {
-                            eprintln!("Could not get prev move: {:?}", e);
-                            eprintln!("Going to starting position");
-                            self.board = Board::from_str(STARTING_POSITION_FEN).unwrap();
-                            self.displayed_node = None;
-                        }
-                    }
-                }
-            }
-            Message::GoNextMove => match self.move_tree.get_next_move(self.displayed_node) {
-                Ok(NextMoveOptions::Single(id, fen)) => {
-                    self.board =
-                        Board::from_str(&fen).expect("Failed to load board from next_move fen");
-                    self.displayed_node = Some(id);
-                }
-                Ok(NextMoveOptions::Multiple(options)) => {
-                    self.next_move_options = Some(options);
-                    return widget::focus_next();
-                }
-                Err(_) => eprintln!("Could not get next move"),
-            },
-            Message::GoToNode(id) => {
-                let fen = self.move_tree.get_fen_for_node(id);
-                self.board = Board::from_str(fen).expect("Failed to load board from next_move fen");
-                self.next_move_options = None;
-                self.displayed_node = Some(id);
-            }
-            Message::LoadPgn(pgn) => {
-                dbg!("Im here I swear");
-                if let Ok(parsed) = movetree::pgn::Parser::new().parse(&pgn) {
-                    dbg!("Im here I swear 2 ");
-                    self.move_tree.load(parsed.0)
-                }
-            }
-        }
+        // match message {
+        //     Message::SelectSquare(s) => self.selected_square = Some(s),
+        //     Message::MakeMove(from, to, displayed_node) => {
+        //         let m = common::r#move::Move::new(from, to);
+        //         if self.board.is_legal(m) {
+        //             let new_node = self.move_tree.add_new_move(m, displayed_node, &self.board);
+        //             self.board = self.board.update(m);
+        //             self.selected_square = None;
+        //             self.displayed_node = Some(new_node);
+        //         } else if self.board.color_on_is(to, self.board.side_to_move()) {
+        //             self.selected_square = Some(to);
+        //         } else {
+        //             self.selected_square = None;
+        //         }
+        //     }
+        //     Message::GoPrevMove => {
+        //         if let Some(n) = self.displayed_node {
+        //             // match self.move_tree.get_prev_move(n) {
+        //             //     Ok((id, fen)) => {
+        //             //         self.board = Board::from_str(fen)
+        //             //             .expect("Failed to load board from prev_move fen");
+        //             //         self.displayed_node = Some(id);
+        //             //     }
+        //             //     Err(e) => {
+        //             //         eprintln!("Could not get prev move: {:?}", e);
+        //             //         eprintln!("Going to starting position");
+        //             //         self.board = Board::from_str(STARTING_POSITION_FEN).unwrap();
+        //             //         self.displayed_node = None;
+        //             //     }
+        //             // }
+        //         }
+        //     }
+        //     Message::GoNextMove => match self.move_tree.get_next_move(self.displayed_node) {
+        //         Ok(NextMoveOptions::Single(id, fen)) => {
+        //             self.board =
+        //                 Board::from_str(&fen).expect("Failed to load board from next_move fen");
+        //             self.displayed_node = Some(id);
+        //         }
+        //         Ok(NextMoveOptions::Multiple(options)) => {
+        //             self.next_move_options = Some(options);
+        //             return widget::focus_next();
+        //         }
+        //         Err(_) => eprintln!("Could not get next move"),
+        //     },
+        //     Message::GoToNode(id) => {
+        //         let fen = self.move_tree.get_fen_for_node(id);
+        //         self.board = Board::from_str(fen).expect("Failed to load board from next_move fen");
+        //         self.next_move_options = None;
+        //         self.displayed_node = Some(id);
+        //     }
+        //     Message::LoadPgn(pgn) => {
+        //         dbg!("Im here I swear");
+        //         if let Ok(parsed) = movetree::pgn::Parser::new().parse(&pgn) {
+        //             dbg!("Im here I swear 2 ");
+        //             self.move_tree.load(parsed.0)
+        //         }
+        //     }
+        // }
         Command::none()
     }
 
@@ -180,12 +181,13 @@ impl Application for App {
                 board_row = Row::new().spacing(0).align_items(Alignment::Center);
             }
 
-            let move_text = row!(Text::new(self.move_tree.generate_pgn()))
-                .width(size.width * 0.3)
-                // .spacing(5)
-                .align_items(Alignment::End);
+            // let move_text = row!(Text::new(self.move_tree.generate_pgn()))
+            //     .width(size.width * 0.3)
+            //     // .spacing(5)
+            //     .align_items(Alignment::End);
 
-            let content = row!(board_col, move_text);
+            // let content = row!(board_col, move_text);
+            let content = row!(board_col);
 
             if let Some(next_opts) = &self.next_move_options {
                 let mut row = Row::new().spacing(2).align_items(Alignment::Center);

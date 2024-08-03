@@ -24,9 +24,12 @@ pub enum TreeNode {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize)]
-pub enum Move {
-    WhiteMove(Fen, Notation),
-    BlackMove(Fen, Notation),
+pub struct Move {
+    // Unconvinced color is neccesary but I suppose we have the information so
+    color: Color,
+    notation: Notation,
+    fen: Fen,
+    comment: String,
 }
 
 // impl TreeNode {
