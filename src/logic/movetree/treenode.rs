@@ -4,6 +4,8 @@ use serde::Serialize;
 
 use crate::common::{board::Board, color::Color};
 
+use super::pgn::parser::CResult;
+
 pub(crate) type Notation = String;
 pub type Fen = String;
 
@@ -18,9 +20,11 @@ pub type Fen = String;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize)]
 pub enum TreeNode {
+    GameStart,
     StartVariation,
     EndVariation,
     Move(Move),
+    Result(CResult),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize)]

@@ -1,10 +1,13 @@
 #![allow(dead_code)]
 use core::fmt;
+use iced::widget::shader::wgpu::naga::proc::index;
+use serde::Serialize;
 use std::iter::Peekable;
 use std::slice::Iter;
 
 use crate::logic::movetree::treenode::TreeNode;
 
+const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1";
 // Grammar
 // R: 1 … 8               # Rank
 // F: a … h               # File
@@ -20,10 +23,10 @@ use crate::logic::movetree::treenode::TreeNode;
 // M: (PM | PM1 | C1) CH?  # Move (with optional check/checkmate)
 // MT: M | MN D M | MN DDD M  # Move Text
 // V: ( E )               # Variation
-// E: MT | C | V | E E    # Element (allows for comments and variations between moves)
-// GT: '1-0' | '0-1' | '1/2-1/2' | '*'  # Game Termination
+// E: MT C | V | E E    # Element (allows for comments and variations between moves)
+// R: '1-0' | '0-1' | '1/2-1/2' | '*'  # Result
 // TS: '[' string string ']'  # Tag Section
-// G: TS* E* GT           # Game (with optional tags, multiple elements, and termination)
+// G: TS* E* R           # Game (with optional tags, multiple elements, and result)
 
 #[derive(Debug)]
 pub struct PgnParser<'a> {
@@ -31,17 +34,49 @@ pub struct PgnParser<'a> {
     cursor: usize,
 }
 
+struct CMove {
+    piece: Piece,
+    dst_rank: Rank,
+    dst_file: File,
+    captures: bool,
+    disam_rank: Option<Rank>,
+    disam_file: Option<File>,
+    promotion: Option<Piece>,
+    // move_text: MoveText,
+    comment: Option<String>,
+}
+
 enum MoveText {
     WhiteMove(String),
     BlackMove(String),
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum CResult {
+enum MoveKind {
+    Piece,
+}
+
+enum PawnMove {
+    Regular(String),
+    Promotion(Promotion),
+    Captures(String),
+}
+
+enum Promotion {
+    WithoutCapture(String),
+    WithCapture(String),
+}
+#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
+pub enum CResult {
     WhiteWins,
     BlackWins,
     Draw,
     NoResult,
+}
+
+enum Expression {
+    Move(CMove),
+    Variation(Vec<Expression>),
+    Sequence(Box<Expression>, Box<Expression>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -58,6 +93,75 @@ impl<'a> PgnParser<'a> {
         }
     }
 
+    fn parse(&mut self) -> Result<indextree::Arena<TreeNode>, PgnParseError> {
+        let mut arena: indextree::Arena<TreeNode> = indextree::Arena::new();
+
+        let root = arena.new_node(TreeNode::GameStart);
+        let current_fen = STARTING_POSITION_FEN;
+        let current = root;
+
+        while let Ok(expression) = self.expression() {
+            match expression {
+                Expression::Move(CMove { move_text, comment }) => {
+                    let node = arena.new_node(TreeNode::Move());
+                }
+                Expression::Variation(_) => todo!(),
+                Expression::Sequence(_, _) => todo!(),
+            }
+        }
+        Ok(arena)
+    }
+
+    // E: MT C? | V | E E    # Element (allows for comments and variations between moves)
+    fn expression(&mut self) -> Result<Expression, PgnParseError> {
+        let first_expression = if let Ok(move_text) = self.move_text() {
+            if let Ok(comment) = self.comment() {
+                Expression::Move(CMove {
+                    move_text,
+                    comment: Some(comment),
+                })
+            } else {
+                Expression::Move(CMove {
+                    move_text,
+                    comment: None,
+                })
+            }
+        } else if let Ok(variation) = self.variation() {
+            Expression::Variation(variation)
+        } else {
+            return Err(PgnParseError::syntax(self.cursor));
+        };
+
+        if let Ok(second_expression) = self.expression() {
+            Ok(Expression::Sequence(
+                Box::new(first_expression),
+                Box::new(second_expression),
+            ))
+        } else {
+            Ok(first_expression)
+        }
+    }
+
+    fn variation(&mut self) -> Result<Vec<Expression>, PgnParseError> {
+        if self.tokens.peek().is_none() {
+            return Err(PgnParseError::unexpected_eof(self.cursor));
+        };
+
+        let mut vec = vec![];
+        if let Some(Token::StartVariation) = self.tokens.peek() {
+            self.consume();
+            loop {
+                if let Some(Token::EndVariation) = self.tokens.peek() {
+                    self.consume();
+                    return Ok(vec);
+                } else if let Ok(expression) = self.expression() {
+                    vec.push(expression);
+                }
+            }
+        }
+
+        Err(PgnParseError::syntax(self.cursor))
+    }
     fn consume(&mut self) {
         self.cursor += 1;
         self.tokens.next();
@@ -234,7 +338,7 @@ impl<'a> PgnParser<'a> {
     }
 
     // M: (PM | PM1 | C1) CH?  # Move (with optional check/checkmate)
-    fn r#move(&mut self) -> Result<String, PgnParseError> {
+    fn r#move(&mut self) -> Result<MoveKind, PgnParseError> {
         let mut str = if let Ok(piece_move) = self.piece_move() {
             piece_move
         } else if let Ok(pawn_move) = self.pawn_move() {
@@ -516,6 +620,7 @@ impl TryFrom<&u32> for Rank {
         }
     }
 }
+
 fn tokenize(input: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
 

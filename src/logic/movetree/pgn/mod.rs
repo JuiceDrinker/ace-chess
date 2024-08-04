@@ -1,4 +1,4 @@
-mod parser;
+pub mod parser;
 // #[cfg(test)]
 // mod test {
 //     use super::*;
