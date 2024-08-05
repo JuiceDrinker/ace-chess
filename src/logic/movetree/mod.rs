@@ -1,17 +1,16 @@
 pub mod pgn;
 pub mod treenode;
 
-use std::{collections::HashSet, str::FromStr};
+use std::str::FromStr;
 
-use crate::{
-    common::{board::Board, color::Color, r#move::Move},
-    error::Error,
-    prelude::Result,
-};
 use indextree::{Arena, NodeId};
 
-use self::treenode::{Notation, TreeNode};
-// Dont expose this eventually..
+use crate::common::{board::Board, color::Color, square::Square};
+
+use self::{
+    pgn::parser::{Expression, PgnParseError},
+    treenode::{CMove, CMoveKind, CastleSide, Fen, Notation, TreeNode},
+};
 
 #[derive(Clone, Debug)]
 pub enum NextMoveOptions {
@@ -19,9 +18,103 @@ pub enum NextMoveOptions {
     Multiple(Vec<(NodeId, Notation)>),
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct MoveTree(pub Arena<TreeNode>);
 
+impl MoveTree {
+    fn new() -> Self {
+        Self(indextree::Arena::new())
+    }
+
+    fn add_expression_to_tree(
+        &mut self,
+        expression: Expression,
+        current: &indextree::NodeId,
+        current_fen: Fen,
+    ) -> Result<(indextree::NodeId, Fen), PgnParseError> {
+        match expression {
+            Expression::Move(cmove) => {
+                let fen = generate_next_fen(&current_fen, &cmove);
+                let new_node = self.0.new_node(TreeNode::Move(fen.clone(), cmove));
+                current.append(new_node, &mut self.0);
+                Ok((new_node, fen))
+            }
+            Expression::Variation(expressions) => {
+                let new_node = self.0.new_node(TreeNode::StartVariation);
+                current.append(new_node, &mut self.0);
+                let mut var_current = new_node;
+                let mut var_fen = current_fen.clone();
+
+                for expression in expressions {
+                    let (node, fen) =
+                        self.add_expression_to_tree(expression, &var_current, var_fen.clone())?;
+                    // Only update var_current and var_fen if we're not returning from a nested variation
+                    if !matches!(self.0[node].get(), TreeNode::EndVariation) {
+                        var_current = node;
+                        var_fen = fen;
+                    }
+                }
+                let new_node = self.0.new_node(TreeNode::EndVariation);
+                var_current.append(new_node, &mut self.0);
+                Ok((new_node, "".to_string()))
+            }
+            Expression::Sequence(first, second) => {
+                let (node1, fen) = self.add_expression_to_tree(*first, current, current_fen)?;
+                self.add_expression_to_tree(*second, &node1, fen)
+            }
+        }
+    }
+}
+
+fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
+    // NOTE: Currently board struct only handles promotion to queen
+    let mut board = Board::from_str(current_fen).unwrap();
+
+    match &cmove.kind {
+        CMoveKind::Castles(side) => {
+            let (from, to) = match (cmove.color, side) {
+                (Color::White, CastleSide::Short) => (Square::E1, Square::G1),
+                (Color::White, CastleSide::Long) => (Square::E1, Square::C1),
+                (Color::Black, CastleSide::Short) => (Square::E8, Square::G8),
+                (Color::Black, CastleSide::Long) => (Square::E8, Square::C8),
+            };
+            board
+                .update(crate::common::r#move::Move { from, to })
+                .to_string()
+        }
+        CMoveKind::Regular(details) => {
+            let dest = Square::make_square(details.dst_file, details.dst_rank);
+            let src = board.get_valid_moves_to(dest, details.piece);
+            assert!(!src.is_empty());
+
+            if src.len() == 1 {
+                board.update(crate::common::r#move::Move {
+                    from: src.into_iter().next().unwrap(),
+                    to: dest,
+                });
+            } else {
+                // Handle disambiguation
+                let mut from_square = None;
+                for s in src {
+                    if (details.disam_file.is_some() && s.file() == details.disam_file.unwrap())
+                        || (details.disam_rank.is_some() && s.rank() == details.disam_rank.unwrap())
+                    {
+                        from_square = Some(s);
+                        break;
+                    }
+                }
+
+                if let Some(from) = from_square {
+                    board.update(crate::common::r#move::Move { from, to: dest });
+                } else {
+                    panic!("Ambiguous move: {:?}", details);
+                }
+            }
+
+            board.to_string()
+        }
+    }
+}
 // impl MoveTree {
 //     pub fn load(&mut self, graph: Arena<TreeNode>) {
 //         self.0 = graph;

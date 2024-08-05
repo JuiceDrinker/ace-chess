@@ -1,83 +1,63 @@
-use std::str::FromStr;
-
-use serde::Serialize;
-
-use crate::common::{board::Board, color::Color};
-
-use super::pgn::parser::CResult;
+use crate::common::color::Color;
+use crate::common::file::File;
+use crate::common::piece::Piece;
+use crate::common::rank::Rank;
 
 pub(crate) type Notation = String;
 pub type Fen = String;
 
-// #[derive(Debug, PartialEq, Eq, Clone, Serialize)]
-// pub struct TreeNode {
-//     pub notation: Notation,
-//     pub fen: Fen,
-//     pub depth: usize,
-//     pub move_number: usize,
-//     pub color: Color,
-// }
-
-#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TreeNode {
     GameStart,
     StartVariation,
     EndVariation,
-    Move(Move),
+    Move(Fen, CMove),
     Result(CResult),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
-pub struct Move {
-    // Unconvinced color is neccesary but I suppose we have the information so
-    color: Color,
-    notation: Notation,
-    fen: Fen,
-    comment: String,
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum CMoveKind {
+    Regular(MoveDetails),
+    Castles(CastleSide),
 }
 
-// impl TreeNode {
-//     pub fn new(
-//         notation: Notation,
-//         fen: Fen,
-//         depth: usize,
-//         move_number: usize,
-//         color: Color,
-//     ) -> Self {
-//         TreeNode {
-//             notation,
-//             fen,
-//             depth,
-//             move_number,
-//             color,
-//         }
-//     }
-//
-//     #[allow(dead_code)]
-//     pub fn pretty_print(node: indextree::NodeId, tree: &indextree::Arena<TreeNode>) {
-//         println!(
-//             "{}",
-//             serde_json::to_string_pretty(&serde_indextree::Node::new(node, tree)).unwrap()
-//         );
-//     }
-//
-//     // TODO: This shouldn't be here
-//     pub fn get_full_moves(&self) -> String {
-//         let board = Board::from_str(&self.fen).unwrap();
-//         if board.side_to_move == Color::Black {
-//             self.fen.trim_end().chars().last().unwrap().to_string()
-//         } else {
-//             (self
-//                 .fen
-//                 .trim_end()
-//                 .chars()
-//                 .last()
-//                 .unwrap()
-//                 .to_string()
-//                 .parse::<usize>()
-//                 .unwrap()
-//                 - 1)
-//             .to_string()
-//         }
-//     }
-// }
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct CMove {
+    pub kind: CMoveKind,
+    pub check: bool,
+    pub color: Color,
+    pub checkmate: bool,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum CastleSide {
+    Short,
+    Long,
+}
+
+    #[test]
+    fn test_simple_pawn_move() {
+        let tokens = tokenize("d4");
+        let res = PgnParser::new(tokens).pawn_move().unwrap();
+
+        assert_eq!(res, CMoveKind ));
+    }
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct MoveDetails {
+    pub piece: Piece,
+    pub dst_rank: Rank,
+    pub dst_file: File,
+    pub captures: bool,
+    pub disam_rank: Option<Rank>,
+    pub disam_file: Option<File>,
+    pub promotion: Option<Piece>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum CResult {
+    WhiteWins,
+    BlackWins,
+    Draw,
+    NoResult,
+}

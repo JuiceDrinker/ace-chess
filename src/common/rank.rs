@@ -104,6 +104,24 @@ impl FromStr for Rank {
     }
 }
 
+impl TryFrom<&u32> for Rank {
+    type Error = Error;
+
+    fn try_from(value: &u32) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Rank::First),
+            2 => Ok(Rank::Second),
+            3 => Ok(Rank::Third),
+            4 => Ok(Rank::Fourth),
+            5 => Ok(Rank::Fifth),
+            6 => Ok(Rank::Sixth),
+            7 => Ok(Rank::Seventh),
+            8 => Ok(Rank::Eighth),
+            _ => Err(Error::InvalidRank),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
