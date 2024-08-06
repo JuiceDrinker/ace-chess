@@ -1,10 +1,5 @@
 #![allow(dead_code)]
-use std::{
-    fmt::{Debug, Display},
-    iter::Peekable,
-    slice::Iter,
-    str::FromStr,
-};
+use std::{fmt::Debug, iter::Peekable, slice::Iter, str::FromStr};
 
 use crate::{
     common::{color::Color, file::File, piece::Piece, rank::Rank},
@@ -14,7 +9,9 @@ use crate::{
     },
 };
 
-const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1";
+use super::{errors::PgnParseError, lexer::Token};
+
+const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq 01";
 // Grammar
 // R: 1 … 8               # Rank
 // F: a … h               # File
@@ -41,6 +38,7 @@ pub struct PgnParser<'a> {
     cursor: usize,
 }
 
+#[derive(Debug, Clone)]
 pub enum Expression {
     Move(CMove),
     Variation(Vec<Expression>),
@@ -64,8 +62,8 @@ impl<'a> PgnParser<'a> {
     fn parse(&mut self) -> Result<MoveTree, PgnParseError> {
         let mut move_tree = MoveTree::new();
 
-        let root = move_tree.0.new_node(TreeNode::GameStart);
         let mut current_fen = String::from(STARTING_POSITION_FEN);
+        let root = move_tree.0.new_node(TreeNode::GameStart);
         let mut current = root;
 
         while let Ok(expression) = self.expression() {
@@ -99,14 +97,15 @@ impl<'a> PgnParser<'a> {
             return Err(PgnParseError::syntax(self.cursor));
         };
 
-        if let Ok(second_expression) = self.expression() {
-            Ok(Expression::Sequence(
-                Box::new(first_expression),
-                Box::new(second_expression),
-            ))
-        } else {
-            Ok(first_expression)
+        if self.tokens.peek() != Some(&&Token::EndVariation) {
+            if let Ok(second_expression) = self.expression() {
+                return Ok(Expression::Sequence(
+                    Box::new(first_expression),
+                    Box::new(second_expression),
+                ));
+            }
         }
+        Ok(first_expression)
     }
 
     fn variation(&mut self) -> Result<Vec<Expression>, PgnParseError> {
@@ -114,15 +113,19 @@ impl<'a> PgnParser<'a> {
             return Err(PgnParseError::unexpected_eof(self.cursor));
         };
 
-        let mut vec = vec![];
         if let Some(Token::StartVariation) = self.tokens.peek() {
             self.consume();
-            loop {
-                if let Some(Token::EndVariation) = self.tokens.peek() {
+            let mut expressions = vec![];
+            while let Some(token) = self.tokens.peek() {
+                if token == &&Token::EndVariation {
                     self.consume();
-                    return Ok(vec);
-                } else if let Ok(expression) = self.expression() {
-                    vec.push(expression);
+                    return Ok(expressions);
+                }
+
+                if let Ok(expression) = self.expression() {
+                    expressions.push(expression)
+                } else {
+                    return Err(PgnParseError::syntax(self.cursor));
                 }
             }
         }
@@ -350,7 +353,7 @@ impl<'a> PgnParser<'a> {
     fn pawn_move(&mut self) -> Result<CMoveKind, PgnParseError> {
         let iter_save = self.tokens.clone();
         let cursor_save = self.cursor;
-        let file = dbg!(self.file())?;
+        let file = self.file()?;
 
         if let Ok(rank) = self.rank() {
             if self.equals().is_ok() {
@@ -602,7 +605,7 @@ impl<'a> PgnParser<'a> {
             _ => return Err(PgnParseError::syntax(self.cursor)),
         };
 
-        Ok(piece.clone())
+        Ok(*piece)
     }
 
     fn captures(&mut self) -> Result<(), PgnParseError> {
@@ -633,147 +636,37 @@ impl<'a> PgnParser<'a> {
 
     // R: 1 … 8               # Rank
     fn rank(&mut self) -> Result<Rank, PgnParseError> {
-        match dbg!(self.tokens.peek()) {
-            Some(Token::Number(number)) => match self.tokens.peek() {
-                // This means that it was a move number and not a rank
-                Some(Token::Number(..)) | Some(Token::Dot) => {
-                    Err(PgnParseError::syntax(self.cursor))
+        match self.tokens.peek() {
+            Some(Token::Number(number)) => {
+                let cursor_save = self.cursor;
+                let iter_save = self.tokens.clone();
+                self.consume();
+                match self.tokens.peek() {
+                    // This means that it was a move number and not a rank
+                    Some(Token::Number(..)) | Some(Token::Dot) => {
+                        self.cursor = cursor_save;
+                        self.tokens = iter_save;
+                        Err(PgnParseError::syntax(self.cursor))
+                    }
+                    // If its something else we're good
+                    _ => {
+                        let rank = Rank::try_from(number)
+                            .map_err(|_| PgnParseError::syntax(self.cursor))?;
+                        Ok(rank)
+                    }
                 }
-                None => Err(PgnParseError::unexpected_eof(self.cursor)),
-                _ => {
-                    let rank =
-                        Rank::try_from(number).map_err(|_| PgnParseError::syntax(self.cursor))?;
-                    self.consume();
-                    Ok(rank)
-                }
-            },
+            }
+            Some(_) => Err(PgnParseError::syntax(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
-            _ => Err(PgnParseError::syntax(self.cursor)),
         }
     }
-}
-
-#[derive(PartialEq, Eq, Debug)]
-pub struct PgnParseError {
-    index: usize,
-    message: String,
-}
-
-impl Display for PgnParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-impl PgnParseError {
-    fn unexpected_eof(index: usize) -> Self {
-        Self {
-            index,
-            message: format!("Unexpected end of file at index:{}", index),
-        }
-    }
-
-    fn syntax(index: usize) -> Self {
-        Self {
-            index,
-            message: format!("Syntax error, at index: {}", index),
-        }
-    }
-}
-
-fn tokenize(input: &str) -> Vec<Token> {
-    let mut tokens = Vec::new();
-
-    let mut chars = input.char_indices().peekable();
-
-    while let Some((idx, char)) = chars.next() {
-        let token = match char {
-            '/' => Token::Slash,
-            '*' => Token::Star,
-            ' ' | '\n' => continue,
-            '.' => Token::Dot,
-            '(' => Token::StartVariation,
-            ')' => Token::EndVariation,
-            '{' => {
-                let comment: String = chars
-                    .by_ref()
-                    .take_while(|(_, char)| *char != '}')
-                    .map(|(_, char)| char)
-                    .collect();
-                Token::Comment(comment)
-            }
-            '0'..='9' => Token::Number(char.to_digit(10).unwrap()),
-            'a'..='h' => Token::File(char),
-            '=' => Token::Equals,
-            '#' => Token::Checkmate,
-            '+' => Token::Check,
-            'x' => Token::Captures,
-            'N' => Token::Piece(Piece::Knight),
-            'B' => Token::Piece(Piece::Bishop),
-            'K' => Token::Piece(Piece::King),
-            'Q' => Token::Piece(Piece::Queen),
-            'R' => Token::Piece(Piece::Rook),
-            '-' => Token::Hyphen,
-            '?' => {
-                if chars.next_if_eq(&(idx + 1, '?')).is_some() {
-                    Token::Nag(Nag::Blunder)
-                } else if chars.next_if_eq(&(idx + 1, '!')).is_some() {
-                    Token::Nag(Nag::Dubious)
-                } else {
-                    Token::Nag(Nag::Poor)
-                }
-            }
-            '!' => {
-                if chars.next_if_eq(&(idx + 1, '!')).is_some() {
-                    Token::Nag(Nag::Excellent)
-                } else if chars.next_if_eq(&(idx + 1, '?')).is_some() {
-                    Token::Nag(Nag::Interesting)
-                } else {
-                    Token::Nag(Nag::Good)
-                }
-            }
-            _ => Token::Invalid,
-        };
-        tokens.push(token);
-    }
-    tokens
-}
-
-#[derive(PartialEq, Eq, Debug, Clone)]
-enum Token {
-    Star,
-    Slash,
-    Number(u32),
-    File(char),
-    Piece(Piece),
-    Comment(String),
-    Nag(Nag),
-    Hyphen,
-    Equals,
-    Dot,
-    Captures,
-    Check,
-    Checkmate,
-    StartVariation,
-    EndVariation,
-    CastleShort,
-    CastleLong,
-    Invalid,
-}
-
-#[derive(PartialEq, Eq, Debug, Clone)]
-enum Nag {
-    Good,
-    Excellent,
-    Interesting,
-    Blunder,
-    Poor,
-    Dubious,
 }
 
 #[cfg(test)]
 mod test {
+    use crate::logic::movetree::pgn::lexer::{tokenize, Token};
 
-    use super::{PgnParseError, PgnParser, Token, *};
+    use super::{PgnParseError, PgnParser, *};
 
     #[test]
     fn test_white_move_number() {
@@ -824,10 +717,30 @@ mod test {
     #[test]
     fn test_move_text() {
         let tokens = tokenize("1.d4");
-        let res = PgnParser::new(tokens.iter()).parse().unwrap();
+        let res = PgnParser::new(tokens.iter()).move_text().unwrap();
 
-        assert_eq!(res, MoveTree::new());
+        assert_eq!(
+            res,
+            CMove {
+                kind: CMoveKind::Regular({
+                    MoveDetails {
+                        piece: Piece::Pawn,
+                        dst_rank: Rank::Fourth,
+                        dst_file: File::D,
+                        captures: false,
+                        disam_rank: None,
+                        disam_file: None,
+                        promotion: None,
+                    }
+                }),
+                check: false,
+                color: Color::White,
+                checkmate: false,
+                comment: None,
+            }
+        );
     }
+
     #[test]
     fn test_syntax_error_incomplete_dots() {
         let tokens = [Token::Number(1), Token::Dot, Token::Dot];
@@ -858,12 +771,52 @@ mod test {
         ));
     }
 
+    #[test]
+    fn test_rank() {
+        let tokens = tokenize("4");
+        let res = PgnParser::new(tokens.iter()).rank().unwrap();
+
+        assert_eq!(res, Rank::Fourth,);
+    }
+
+    #[test]
+    fn test_simple_pawn_move() {
+        let tokens = tokenize("d4");
+        let res = PgnParser::new(tokens.iter()).pawn_move().unwrap();
+
+        assert_eq!(
+            res,
+            CMoveKind::Regular({
+                MoveDetails {
+                    piece: Piece::Pawn,
+                    dst_rank: Rank::Fourth,
+                    dst_file: File::D,
+                    captures: false,
+                    disam_rank: None,
+                    disam_file: None,
+                    promotion: None,
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn test_variation() {
+        let tokens = tokenize("( 1. e4 e5 )");
+        let res = PgnParser::new(tokens.iter()).variation().unwrap();
+        assert_eq!(res.len(), 1)
+    }
+
     // #[test]
-    // fn parses_nested_variations() {
-    //     let tokens = tokenize("1. d4 ( 1. e4 e5 (2... Nf6 3. Nh3) ) d5 2.Nf3 (2. a4) 1-0");
-    //     dbg!(tokens.clone());
-    //     let res = PgnParser::new(tokens.iter()).parse().unwrap();
-    //
-    //     assert_eq!(res, MoveTree::new());
-    // }
+    fn parses_nested_variations() {
+        let tokens = tokenize("1.d4 ( 1. e4 e5 (2... Nf6 3. Nh3) )");
+        let res = PgnParser::new(tokens.iter()).parse().unwrap();
+    }
+
+    #[test]
+    fn test_simple_game() {
+        let tokens = tokenize("1.d4 d5 1-0");
+        let res = PgnParser::new(tokens.iter()).parse().unwrap();
+        assert_eq!(res, MoveTree::new());
+    }
 }

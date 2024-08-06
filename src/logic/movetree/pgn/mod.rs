@@ -1,5 +1,8 @@
+pub mod errors;
+mod lexer;
 pub mod parser;
 // #[cfg(test)]
+
 // mod test {
 //     use super::*;
 //
@@ -18,17 +21,6 @@ pub mod parser;
 //         assert_eq!(parser.graph.0.count(), 2);
 //     }
 //
-//     #[test]
-//     fn parses_nested_variations() {
-//         let parser = Parser::new();
-//         let res = parser
-//             .parse("1. d4 ( 1. e4 e5 (2... Nf6 3. Nh3) ) d5 2.Nf3 (2. a4) 1-0")
-//             // .parse("1. d4 ( 1. e4 e5 2. Nf3 Nf6 (2... a6 (2... b6 )(2... Nc6) 3. Na3)  ) d5 1-0")
-//             // .parse("1.d4 e5 (1...e6 2.e4)")
-//             .unwrap();
-//
-//         assert_eq!(res.0.count(), 9);
-//     }
 //
 //     #[test]
 //     #[should_panic]

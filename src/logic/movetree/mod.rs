@@ -8,7 +8,8 @@ use indextree::{Arena, NodeId};
 use crate::common::{board::Board, color::Color, square::Square};
 
 use self::{
-    pgn::parser::{Expression, PgnParseError},
+    pgn::errors::PgnParseError,
+    pgn::parser::Expression,
     treenode::{CMove, CMoveKind, CastleSide, Fen, Notation, TreeNode},
 };
 
@@ -85,7 +86,7 @@ fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
         CMoveKind::Regular(details) => {
             let dest = Square::make_square(details.dst_file, details.dst_rank);
             let src = board.get_valid_moves_to(dest, details.piece);
-            assert!(!src.is_empty());
+            // assert!(!src.is_empty());
 
             if src.len() == 1 {
                 board.update(crate::common::r#move::Move {

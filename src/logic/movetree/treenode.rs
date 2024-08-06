@@ -36,13 +36,6 @@ pub enum CastleSide {
     Long,
 }
 
-    #[test]
-    fn test_simple_pawn_move() {
-        let tokens = tokenize("d4");
-        let res = PgnParser::new(tokens).pawn_move().unwrap();
-
-        assert_eq!(res, CMoveKind ));
-    }
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MoveDetails {
     pub piece: Piece,
