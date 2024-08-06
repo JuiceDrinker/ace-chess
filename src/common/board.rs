@@ -292,7 +292,7 @@ impl Board {
 
     /// Get the [`Color`] at a given [`Square`].
     pub fn on(&self, square: Square) -> Option<(Piece, Color)> {
-        self.squares[square.as_index()].map(|(piece, color)| (piece, color))
+        self.squares[square.as_index()]
     }
 
     /// Verify if the [`Square`] is occupied by the given [`Piece`] and [`Color`].

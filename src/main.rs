@@ -3,12 +3,12 @@ use crate::common::file::File;
 use common::{board::Board, rank::Rank, square::Square};
 use iced::{
     alignment, clipboard, executor,
-    keyboard::{self, Modifiers},
-    widget::{self, container, responsive, row, Button, Column, Container, Image, Row, Text},
+    keyboard::{self},
+    widget::{container, responsive, row, Button, Column, Container, Image, Row, Text},
     Alignment, Application, Command, Element, Length, Subscription,
 };
 
-use logic::movetree::{self, MoveTree, NextMoveOptions};
+use logic::movetree::{MoveTree};
 use message::Message;
 use prelude::Result;
 use std::str::FromStr;

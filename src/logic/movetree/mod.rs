@@ -1,15 +1,17 @@
 pub mod pgn;
 pub mod treenode;
 
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 use indextree::{Arena, NodeId};
 
 use crate::common::{board::Board, color::Color, square::Square};
 
 use self::{
-    pgn::errors::PgnParseError,
-    pgn::parser::Expression,
+    pgn::{
+        errors::PgnParseError,
+        parser::{Expression, STARTING_POSITION_FEN},
+    },
     treenode::{CMove, CMoveKind, CastleSide, Fen, Notation, TreeNode},
 };
 
@@ -22,6 +24,18 @@ pub enum NextMoveOptions {
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct MoveTree(pub Arena<TreeNode>);
 
+// impl Display for MoveTree {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(
+//             f,
+//             "{}",
+//             self.get_tree_roots()
+//                 .first()
+//                 .unwrap()
+//                 .debug_pretty_print(&self.0)
+//         )
+//     }
+// }
 impl MoveTree {
     fn new() -> Self {
         Self(indextree::Arena::new())
@@ -41,10 +55,12 @@ impl MoveTree {
                 Ok((new_node, fen))
             }
             Expression::Variation(expressions) => {
+                let parent_fen = self.find_parent_fen(current);
+
                 let new_node = self.0.new_node(TreeNode::StartVariation);
                 current.append(new_node, &mut self.0);
                 let mut var_current = new_node;
-                let mut var_fen = current_fen.clone();
+                let mut var_fen = parent_fen;
 
                 for expression in expressions {
                     let (node, fen) =
@@ -57,7 +73,8 @@ impl MoveTree {
                 }
                 let new_node = self.0.new_node(TreeNode::EndVariation);
                 var_current.append(new_node, &mut self.0);
-                Ok((new_node, "".to_string()))
+                // Return the original FEN, not the variation's last FEN
+                Ok((new_node, current_fen))
             }
             Expression::Sequence(first, second) => {
                 let (node1, fen) = self.add_expression_to_tree(*first, current, current_fen)?;
@@ -65,11 +82,32 @@ impl MoveTree {
             }
         }
     }
+
+    fn find_parent_fen(&self, node: &indextree::NodeId) -> Fen {
+        let mut current = *node;
+        while let Some(parent) = self.0.get(current).unwrap().parent() {
+            if let TreeNode::Move(fen, _) = self.0[parent].get() {
+                return fen.clone();
+            }
+            current = parent;
+        }
+        // If we can't find a parent move, return the starting position
+        STARTING_POSITION_FEN.to_string()
+    }
+
+    pub fn get_tree_roots(&self) -> Vec<NodeId> {
+        self.0
+            .iter()
+            .filter(|node| node.parent().is_none())
+            .map(|node| self.0.get_node_id(node).unwrap())
+            .collect()
+    }
 }
 
 fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
     // NOTE: Currently board struct only handles promotion to queen
-    let mut board = Board::from_str(current_fen).unwrap();
+    dbg!(current_fen);
+    let mut board = Board::from_str(current_fen).expect("To be able to create a valid fen");
 
     match &cmove.kind {
         CMoveKind::Castles(side) => {
@@ -85,22 +123,24 @@ fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
         }
         CMoveKind::Regular(details) => {
             let dest = Square::make_square(details.dst_file, details.dst_rank);
-            let src = board.get_valid_moves_to(dest, details.piece);
+            let potential_source_squares = board.get_valid_moves_to(dest, details.piece);
             // assert!(!src.is_empty());
 
-            if src.len() == 1 {
+            if dbg!(potential_source_squares.clone()).len() == 1 {
                 board.update(crate::common::r#move::Move {
-                    from: src.into_iter().next().unwrap(),
+                    from: potential_source_squares.into_iter().next().unwrap(),
                     to: dest,
                 });
             } else {
                 // Handle disambiguation
                 let mut from_square = None;
-                for s in src {
-                    if (details.disam_file.is_some() && s.file() == details.disam_file.unwrap())
-                        || (details.disam_rank.is_some() && s.rank() == details.disam_rank.unwrap())
+                for square in potential_source_squares {
+                    if (details.disam_file.is_some()
+                        && square.file() == details.disam_file.unwrap())
+                        || (details.disam_rank.is_some()
+                            && square.rank() == details.disam_rank.unwrap())
                     {
-                        from_square = Some(s);
+                        from_square = Some(square);
                         break;
                     }
                 }
@@ -124,13 +164,6 @@ fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
 //         &self.0
 //     }
 //
-//     pub fn get_tree_roots(&self) -> Vec<NodeId> {
-//         self.get_tree()
-//             .iter()
-//             .filter(|node| node.parent().is_none())
-//             .map(|node| self.get_tree().get_node_id(node).unwrap())
-//             .collect()
-//     }
 //
 //     // pub fn get_fen_for_node(&self, id: NodeId) -> &str {
 //     //     self.0[id].get().fen.as_str()

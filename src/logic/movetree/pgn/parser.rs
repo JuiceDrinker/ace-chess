@@ -1,5 +1,10 @@
 #![allow(dead_code)]
-use std::{fmt::Debug, iter::Peekable, slice::Iter, str::FromStr};
+use std::{
+    fmt::Debug,
+    iter::{self, Peekable},
+    slice::Iter,
+    str::FromStr,
+};
 
 use crate::{
     common::{color::Color, file::File, piece::Piece, rank::Rank},
@@ -11,7 +16,7 @@ use crate::{
 
 use super::{errors::PgnParseError, lexer::Token};
 
-const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq 01";
+pub const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 // Grammar
 // R: 1 … 8               # Rank
 // F: a … h               # File
@@ -73,12 +78,18 @@ impl<'a> PgnParser<'a> {
                 current = node;
                 current_fen = fen;
             }
+            dbg!(&self.tokens);
+            // dbg!(move_tree.clone());
         }
 
+        dbg!(&self.tokens);
+        dbg!("here??");
+        // dbg!(move_tree.clone());
         let result = self.result()?;
         let new_node = move_tree.0.new_node(TreeNode::Result(result));
         current.append(new_node, &mut move_tree.0);
 
+        // dbg!(move_tree.clone());
         Ok(move_tree)
     }
 
@@ -94,7 +105,7 @@ impl<'a> PgnParser<'a> {
         } else if let Ok(variation) = self.variation() {
             Expression::Variation(variation)
         } else {
-            return Err(PgnParseError::syntax(self.cursor));
+            return Err(PgnParseError::expression_parsing_error(self.cursor));
         };
 
         if self.tokens.peek() != Some(&&Token::EndVariation) {
@@ -125,13 +136,14 @@ impl<'a> PgnParser<'a> {
                 if let Ok(expression) = self.expression() {
                     expressions.push(expression)
                 } else {
-                    return Err(PgnParseError::syntax(self.cursor));
+                    return Err(PgnParseError::variation_parsing_error(self.cursor));
                 }
             }
         }
 
-        Err(PgnParseError::syntax(self.cursor))
+        Err(PgnParseError::variation_parsing_error(self.cursor))
     }
+
     fn consume(&mut self) {
         self.cursor += 1;
         self.tokens.next();
@@ -141,6 +153,8 @@ impl<'a> PgnParser<'a> {
         let iter_save = self.tokens.clone();
         let cursor_save = self.cursor;
 
+        dbg!(&self.tokens);
+
         match self.tokens.peek() {
             Some(Token::Number(1)) => {
                 self.consume();
@@ -148,12 +162,13 @@ impl<'a> PgnParser<'a> {
                     Some(Token::Hyphen) => {
                         self.consume();
                         if let Some(Token::Number(0)) = self.tokens.peek() {
+                            dbg!("I get here right?");
                             self.consume();
                             Ok(CResult::WhiteWins)
                         } else {
                             self.tokens = iter_save;
                             self.cursor = cursor_save;
-                            Err(PgnParseError::syntax(self.cursor))
+                            Err(PgnParseError::result_parsing_error(self.cursor))
                         }
                     }
                     Some(Token::Slash) => {
@@ -178,12 +193,12 @@ impl<'a> PgnParser<'a> {
 
                         self.tokens = iter_save;
                         self.cursor = cursor_save;
-                        Err(PgnParseError::syntax(self.cursor))
+                        Err(PgnParseError::result_parsing_error(self.cursor))
                     }
                     _ => {
                         self.tokens = iter_save;
                         self.cursor = cursor_save;
-                        Err(PgnParseError::syntax(self.cursor))
+                        Err(PgnParseError::result_parsing_error(self.cursor))
                     }
                 }
             }
@@ -197,19 +212,19 @@ impl<'a> PgnParser<'a> {
                     } else {
                         self.tokens = iter_save;
                         self.cursor = cursor_save;
-                        Err(PgnParseError::syntax(self.cursor))
+                        Err(PgnParseError::result_parsing_error(self.cursor))
                     }
                 } else {
                     self.tokens = iter_save;
                     self.cursor = cursor_save;
-                    Err(PgnParseError::syntax(self.cursor))
+                    Err(PgnParseError::result_parsing_error(self.cursor))
                 }
             }
             Some(Token::Star) => {
                 self.consume();
                 Ok(CResult::NoResult)
             }
-            Some(_) => Err(PgnParseError::syntax(self.cursor)),
+            Some(_) => Err(PgnParseError::result_parsing_error(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
         }
     }
@@ -219,7 +234,7 @@ impl<'a> PgnParser<'a> {
                 self.consume();
                 Ok(comment.to_string())
             }
-            Some(_) => Err(PgnParseError::syntax(self.cursor)),
+            Some(_) => Err(PgnParseError::comment_parsing_error(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
         }
     }
@@ -230,7 +245,7 @@ impl<'a> PgnParser<'a> {
                 self.consume();
                 Ok("#".to_string())
             }
-            Some(_) => Err(PgnParseError::syntax(self.cursor)),
+            Some(_) => Err(PgnParseError::comment_parsing_error(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
         }
     }
@@ -241,7 +256,7 @@ impl<'a> PgnParser<'a> {
                 self.consume();
                 Ok("+".to_string())
             }
-            Some(_) => Err(PgnParseError::syntax(self.cursor)),
+            Some(_) => Err(PgnParseError::check_parsing_error(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
         }
     }
@@ -252,13 +267,15 @@ impl<'a> PgnParser<'a> {
                 self.consume();
                 Ok(".".to_string())
             }
-            Some(_) => Err(PgnParseError::syntax(self.cursor)),
+            Some(_) => Err(PgnParseError::dot_parsing_error(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
         }
     }
 
     // MT: M | MN D M | MN DDD M  # Move Text
     fn move_text(&mut self) -> Result<CMove, PgnParseError> {
+        let iter_save = self.tokens.clone();
+        let cursor_save = self.cursor;
         if let Ok(mut move_kind) = self.r#move() {
             move_kind.color = Color::Black;
             return Ok(move_kind);
@@ -272,8 +289,10 @@ impl<'a> PgnParser<'a> {
                     }
                 };
             }
+            self.tokens = iter_save;
+            self.cursor = cursor_save
         }
-        Err(PgnParseError::syntax(self.cursor))
+        Err(PgnParseError::move_text_parsing_error(self.cursor))
     }
 
     fn move_number(&mut self) -> Result<MoveNumber, PgnParseError> {
@@ -291,7 +310,7 @@ impl<'a> PgnParser<'a> {
                             } else {
                                 self.tokens = iter_save;
                                 self.cursor = cursor_save;
-                                return Err(PgnParseError::syntax(self.cursor));
+                                return Err(PgnParseError::move_number_parsing_error(self.cursor));
                             }
                         } else {
                             return Ok(MoveNumber::WhiteMoveNumber(number));
@@ -305,7 +324,7 @@ impl<'a> PgnParser<'a> {
                     }
                 }
             }
-            Some(_) => Err(PgnParseError::syntax(self.cursor)),
+            Some(_) => Err(PgnParseError::move_number_parsing_error(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
         }
     }
@@ -319,7 +338,7 @@ impl<'a> PgnParser<'a> {
         } else if let Ok(castle) = self.castle() {
             castle
         } else {
-            return Err(PgnParseError::syntax(self.cursor));
+            return Err(PgnParseError::move_parsing_error(self.cursor));
         };
 
         if self.check().is_ok() {
@@ -416,7 +435,7 @@ impl<'a> PgnParser<'a> {
         self.tokens = iter_save;
         self.cursor = cursor_save;
 
-        Err(PgnParseError::syntax(self.cursor))
+        Err(PgnParseError::pawn_move_parsing_error(self.cursor))
     }
 
     fn equals(&mut self) -> Result<(), PgnParseError> {
@@ -425,7 +444,7 @@ impl<'a> PgnParser<'a> {
                 self.consume();
                 Ok(())
             }
-            Some(_) => Err(PgnParseError::syntax(self.cursor)),
+            Some(_) => Err(PgnParseError::equals_parsing_error(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
         }
     }
@@ -440,7 +459,7 @@ impl<'a> PgnParser<'a> {
                 self.consume();
                 Ok(CMoveKind::Castles(CastleSide::Long))
             }
-            Some(_) => Err(PgnParseError::syntax(self.cursor)),
+            Some(_) => Err(PgnParseError::castle_parsing_error(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
         }
     }
@@ -455,7 +474,7 @@ impl<'a> PgnParser<'a> {
         if self.tokens.peek().is_none() {
             self.tokens = iter_save;
             self.cursor = cursor_save;
-            return Err(PgnParseError::unexpected_eof(self.cursor));
+            return Err(PgnParseError::piece_move_parsing_error(self.cursor));
         }
 
         if let Ok(file) = self.file() {
@@ -489,7 +508,7 @@ impl<'a> PgnParser<'a> {
 
             self.tokens = iter_save;
             self.cursor = cursor_save;
-            return Err(PgnParseError::syntax(self.cursor));
+            return Err(PgnParseError::piece_move_parsing_error(self.cursor));
         }
 
         // PRFR
@@ -510,7 +529,7 @@ impl<'a> PgnParser<'a> {
             }
             self.tokens = iter_save;
             self.cursor = cursor_save;
-            return Err(PgnParseError::syntax(self.cursor));
+            return Err(PgnParseError::piece_move_parsing_error(self.cursor));
         }
 
         self.tokens = iter_save;
@@ -542,7 +561,7 @@ impl<'a> PgnParser<'a> {
             }
             self.tokens = iter_save;
             self.cursor = cursor_save;
-            return Err(PgnParseError::syntax(self.cursor));
+            return Err(PgnParseError::piece_capture_parsing_error(self.cursor));
         }
 
         // Try PFxFR
@@ -565,7 +584,7 @@ impl<'a> PgnParser<'a> {
             }
             self.tokens = iter_save;
             self.cursor = cursor_save;
-            return Err(PgnParseError::syntax(self.cursor));
+            return Err(PgnParseError::piece_capture_parsing_error(self.cursor));
         }
 
         // Try PRxFR
@@ -588,10 +607,10 @@ impl<'a> PgnParser<'a> {
             }
             self.tokens = iter_save;
             self.cursor = cursor_save;
-            return Err(PgnParseError::syntax(self.cursor));
+            return Err(PgnParseError::piece_capture_parsing_error(self.cursor));
         }
 
-        Err(PgnParseError::syntax(self.cursor))
+        Err(PgnParseError::piece_capture_parsing_error(self.cursor))
     }
 
     // P: N, B, R, Q, K       # Piece
@@ -602,7 +621,7 @@ impl<'a> PgnParser<'a> {
                 piece
             }
             None => return Err(PgnParseError::unexpected_eof(self.cursor)),
-            _ => return Err(PgnParseError::syntax(self.cursor)),
+            _ => return Err(PgnParseError::piece_move_parsing_error(self.cursor)),
         };
 
         Ok(*piece)
@@ -614,7 +633,7 @@ impl<'a> PgnParser<'a> {
                 self.consume();
                 Ok(())
             }
-            Some(_) => Err(PgnParseError::syntax(self.cursor)),
+            Some(_) => Err(PgnParseError::captures_parsing_error(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
         }
     }
@@ -624,12 +643,12 @@ impl<'a> PgnParser<'a> {
         match self.tokens.peek() {
             Some(Token::File(file)) => {
                 let file = File::from_str(&file.to_string())
-                    .map_err(|_| PgnParseError::syntax(self.cursor))?;
+                    .map_err(|_| PgnParseError::file_parsing_error(self.cursor))?;
                 self.consume();
                 Ok(file)
             }
 
-            Some(_) => Err(PgnParseError::syntax(self.cursor)),
+            Some(_) => Err(PgnParseError::file_parsing_error(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
         }
     }
@@ -638,25 +657,15 @@ impl<'a> PgnParser<'a> {
     fn rank(&mut self) -> Result<Rank, PgnParseError> {
         match self.tokens.peek() {
             Some(Token::Number(number)) => {
-                let cursor_save = self.cursor;
-                let iter_save = self.tokens.clone();
+                // NOTE: Feel this is a bit dangerous incase we encounter a move number from 1-8
+                // and parse it as rank but other grammar rule should fail meaning we dont eat this
+                // token as a rank when it isn't
                 self.consume();
-                match self.tokens.peek() {
-                    // This means that it was a move number and not a rank
-                    Some(Token::Number(..)) | Some(Token::Dot) => {
-                        self.cursor = cursor_save;
-                        self.tokens = iter_save;
-                        Err(PgnParseError::syntax(self.cursor))
-                    }
-                    // If its something else we're good
-                    _ => {
-                        let rank = Rank::try_from(number)
-                            .map_err(|_| PgnParseError::syntax(self.cursor))?;
-                        Ok(rank)
-                    }
-                }
+                let rank = Rank::try_from(number)
+                    .map_err(|_| PgnParseError::rank_parsing_error(self.cursor))?;
+                Ok(rank)
             }
-            Some(_) => Err(PgnParseError::syntax(self.cursor)),
+            Some(_) => Err(PgnParseError::rank_parsing_error(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
         }
     }
@@ -807,16 +816,24 @@ mod test {
         assert_eq!(res.len(), 1)
     }
 
-    // #[test]
-    fn parses_nested_variations() {
-        let tokens = tokenize("1.d4 ( 1. e4 e5 (2... Nf6 3. Nh3) )");
+    #[test]
+    fn parses_variations() {
+        let tokens = tokenize("1.d4 e5 (1... Nf6 2. Nh3 (Nf3)) 0-1");
         let res = PgnParser::new(tokens.iter()).parse().unwrap();
+
+        dbg!(res
+            .clone()
+            .get_tree_roots()
+            .first()
+            .unwrap()
+            .debug_pretty_print(&res.clone().0));
+        assert_eq!(res, MoveTree::new());
     }
 
     #[test]
     fn test_simple_game() {
-        let tokens = tokenize("1.d4 d5 1-0");
-        let res = PgnParser::new(tokens.iter()).parse().unwrap();
-        assert_eq!(res, MoveTree::new());
+        let tokens = tokenize("1.d4 1-0");
+        let res = PgnParser::new(tokens.iter()).parse();
+        assert!(res.is_ok())
     }
 }

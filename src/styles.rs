@@ -125,7 +125,7 @@ impl container::StyleSheet for Theme {
             shadow: Shadow {
                 color: Color::WHITE,
                 offset: iced::Vector::new(0.0, 0.0),
-                blur_radius: 0.0.into(),
+                blur_radius: 0.0,
             },
         }
     }
@@ -228,7 +228,7 @@ impl scrollable::StyleSheet for Theme {
                 shadow: Shadow {
                     color: Color::WHITE,
                     offset: iced::Vector::new(0.0, 0.0),
-                    blur_radius: 0.0.into(),
+                    blur_radius: 0.0,
                 },
             },
         }
