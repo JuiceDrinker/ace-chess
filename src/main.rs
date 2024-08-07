@@ -1,14 +1,16 @@
 // use crate::{common::file::File, logic::movetree::pgn::STARTING_POSITION_FEN};
-use crate::common::file::File;
+use crate::{
+    common::file::File,
+    logic::movetree::pgn::{lexer::tokenize, parser::PgnParser},
+};
 use common::{board::Board, rank::Rank, square::Square};
 use iced::{
-    alignment, clipboard, executor,
-    keyboard::{self},
+    alignment, clipboard, executor, keyboard,
     widget::{container, responsive, row, Button, Column, Container, Image, Row, Text},
     Alignment, Application, Command, Element, Length, Subscription,
 };
 
-use logic::movetree::{MoveTree};
+use logic::movetree::MoveTree;
 use message::Message;
 use prelude::Result;
 use std::str::FromStr;
@@ -50,64 +52,77 @@ impl Application for App {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        // match message {
-        //     Message::SelectSquare(s) => self.selected_square = Some(s),
-        //     Message::MakeMove(from, to, displayed_node) => {
-        //         let m = common::r#move::Move::new(from, to);
-        //         if self.board.is_legal(m) {
-        //             let new_node = self.move_tree.add_new_move(m, displayed_node, &self.board);
-        //             self.board = self.board.update(m);
-        //             self.selected_square = None;
-        //             self.displayed_node = Some(new_node);
-        //         } else if self.board.color_on_is(to, self.board.side_to_move()) {
-        //             self.selected_square = Some(to);
-        //         } else {
-        //             self.selected_square = None;
-        //         }
-        //     }
-        //     Message::GoPrevMove => {
-        //         if let Some(n) = self.displayed_node {
-        //             // match self.move_tree.get_prev_move(n) {
-        //             //     Ok((id, fen)) => {
-        //             //         self.board = Board::from_str(fen)
-        //             //             .expect("Failed to load board from prev_move fen");
-        //             //         self.displayed_node = Some(id);
-        //             //     }
-        //             //     Err(e) => {
-        //             //         eprintln!("Could not get prev move: {:?}", e);
-        //             //         eprintln!("Going to starting position");
-        //             //         self.board = Board::from_str(STARTING_POSITION_FEN).unwrap();
-        //             //         self.displayed_node = None;
-        //             //     }
-        //             // }
-        //         }
-        //     }
-        //     Message::GoNextMove => match self.move_tree.get_next_move(self.displayed_node) {
-        //         Ok(NextMoveOptions::Single(id, fen)) => {
-        //             self.board =
-        //                 Board::from_str(&fen).expect("Failed to load board from next_move fen");
-        //             self.displayed_node = Some(id);
-        //         }
-        //         Ok(NextMoveOptions::Multiple(options)) => {
-        //             self.next_move_options = Some(options);
-        //             return widget::focus_next();
-        //         }
-        //         Err(_) => eprintln!("Could not get next move"),
-        //     },
-        //     Message::GoToNode(id) => {
-        //         let fen = self.move_tree.get_fen_for_node(id);
-        //         self.board = Board::from_str(fen).expect("Failed to load board from next_move fen");
-        //         self.next_move_options = None;
-        //         self.displayed_node = Some(id);
-        //     }
-        //     Message::LoadPgn(pgn) => {
-        //         dbg!("Im here I swear");
-        //         if let Ok(parsed) = movetree::pgn::Parser::new().parse(&pgn) {
-        //             dbg!("Im here I swear 2 ");
-        //             self.move_tree.load(parsed.0)
-        //         }
-        //     }
-        // }
+        match message {
+            Message::SelectSquare(s) => self.selected_square = Some(s),
+            Message::MakeMove(from, to, displayed_node) => {
+                let m = common::r#move::Move::new(from, to);
+                if self.board.is_legal(m) {
+                    // let new_node = self.move_tree.add_new_move(m, displayed_node, &self.board);
+                    self.board = self.board.update(m);
+                    self.selected_square = None;
+                    // self.displayed_node = Some(new_node);
+                } else if self.board.color_on_is(to, self.board.side_to_move()) {
+                    self.selected_square = Some(to);
+                } else {
+                    self.selected_square = None;
+                }
+            }
+            Message::GoPrevMove => {
+                if let Some(n) = self.displayed_node {
+                    // match self.move_tree.get_prev_move(n) {
+                    //     Ok((id, fen)) => {
+                    //         self.board = Board::from_str(fen)
+                    //             .expect("Failed to load board from prev_move fen");
+                    //         self.displayed_node = Some(id);
+                    //     }
+                    //     Err(e) => {
+                    //         eprintln!("Could not get prev move: {:?}", e);
+                    //         eprintln!("Going to starting position");
+                    //         self.board = Board::from_str(STARTING_POSITION_FEN).unwrap();
+                    //         self.displayed_node = None;
+                    //     }
+                    // }
+                }
+            }
+            Message::GoNextMove => match self.move_tree.get_next_move(self.displayed_node) {
+                Ok(NextMoveOptions::Single(id, fen)) => {
+                    self.board =
+                        Board::from_str(&fen).expect("Failed to load board from next_move fen");
+                    self.displayed_node = Some(id);
+                }
+                Ok(NextMoveOptions::Multiple(options)) => {
+                    self.next_move_options = Some(options);
+                    return widget::focus_next();
+                }
+                Err(_) => eprintln!("Could not get next move"),
+            },
+            // Message::GoToNode(id) => {
+            //     let fen = self.move_tree.get_fen_for_node(id);
+            //     self.board = Board::from_str(fen).expect("Failed to load board from next_move fen");
+            //     self.next_move_options = None;
+            //     self.displayed_node = Some(id);
+            // }
+            Message::InitLoadPgn => {
+                return clipboard::read(|content| {
+                    if let Some(content) = content {
+                        Message::LoadPgn(content)
+                    } else {
+                        Message::LoadPgn("This will fail".to_string())
+                    }
+                })
+            }
+            Message::LoadPgn(pgn) => {
+                dbg!("Im here I swear");
+                let tokens = tokenize(&pgn);
+                if let Ok(parsed) = PgnParser::new(tokens.iter()).parse() {
+                    dbg!("Im here I swear 2 ");
+                    self.move_tree = parsed.clone();
+                    dbg!(parsed.clone());
+                    // self.move_tree.load(parsed.0)
+                }
+            }
+            _ => {}
+        }
         Command::none()
     }
 
@@ -221,19 +236,9 @@ impl Application for App {
             (keyboard::Key::Named(keyboard::key::Named::ArrowRight), _) => {
                 Some(Message::GoNextMove)
             }
-            (keyboard::Key::Character(_v), m) => {
-                dbg!("wtf");
-                dbg!(m);
-                if m.shift() {
-                    dbg!("wtf");
-                    let x = clipboard::read(|pgn| {
-                        dbg!("wtf");
-                        pgn.map(Message::LoadPgn);
-                        dbg!("wtf2");
-                    });
-                    dbg!(x);
-                }
-                None
+            (keyboard::Key::Character("v"), modifier) if modifier.command() => {
+                dbg!("TRIGgefr");
+                Some(Message::InitLoadPgn)
             }
             _ => None,
         })

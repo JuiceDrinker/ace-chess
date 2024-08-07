@@ -9,5 +9,6 @@ pub enum Message {
     GoPrevMove,
     GoNextMove,
     GoToNode(NodeId),
+    InitLoadPgn,
     LoadPgn(String),
 }

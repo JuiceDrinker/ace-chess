@@ -6,8 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# iced = {version = "0.10.0", features = [] }
-iced = {version = "0.12.1", features = ["svg", "lazy", "image","advanced"] }
 iced_aw = {version = "0.7.0", default-features = false, features = ["floating_element"] }
 
 anyhow = "1.0.75"
@@ -16,6 +14,7 @@ indextree = "4.6.0"
 serde = "1.0.190"
 serde_indextree = "0.2.0"
 serde_json = "1.0.107"
+iced = {version = "0.12.1", features = ["svg", "lazy", "image","advanced"] }
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"

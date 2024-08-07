@@ -1,10 +1,4 @@
-#![allow(dead_code)]
-use std::{
-    fmt::Debug,
-    iter::{self, Peekable},
-    slice::Iter,
-    str::FromStr,
-};
+use std::{fmt::Debug, iter::Peekable, slice::Iter, str::FromStr};
 
 use crate::{
     common::{color::Color, file::File, piece::Piece, rank::Rank},
@@ -57,14 +51,14 @@ enum MoveNumber {
 }
 
 impl<'a> PgnParser<'a> {
-    fn new(tokens: Iter<'a, Token>) -> Self {
+    pub fn new(tokens: Iter<'a, Token>) -> Self {
         Self {
             tokens: tokens.peekable(),
             cursor: 0,
         }
     }
 
-    fn parse(&mut self) -> Result<MoveTree, PgnParseError> {
+    pub fn parse(&mut self) -> Result<MoveTree, PgnParseError> {
         let mut move_tree = MoveTree::new();
 
         let mut current_fen = String::from(STARTING_POSITION_FEN);
