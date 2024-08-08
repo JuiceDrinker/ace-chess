@@ -19,4 +19,5 @@ pub enum ParseKind {
     CharToPiece,
     StringToPgn,
     StringToNag,
+    MoveToCMove,
 }

@@ -1,6 +1,15 @@
 use std::fmt;
 
+use iced::widget::checkbox;
+
+use crate::{
+    common::{color::Color, rank::Rank},
+    error::{Error, ParseKind},
+    logic::movetree::treenode::{CMove, CMoveKind, CastleSide, MoveDetails},
+};
+
 use super::{board::Board, piece::Piece, square::Square};
+use crate::Result;
 
 /// Represent a Move
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -31,6 +40,57 @@ impl Move {
         self.from.distance(self.to)
     }
 
+    pub fn try_into_cmove(self, board: Board) -> Result<CMove> {
+        let Self { from, to } = self;
+        if let Some((piece, color)) = board.colored_piece_on(from) {
+            let kind = match (color, piece, from, to) {
+                (Color::White, Piece::King, Square::E1, Square::G1) => {
+                    CMoveKind::Castles(CastleSide::Short)
+                }
+                (Color::White, Piece::King, Square::E1, Square::C1) => {
+                    CMoveKind::Castles(CastleSide::Long)
+                }
+                (Color::Black, Piece::King, Square::E8, Square::G8) => {
+                    CMoveKind::Castles(CastleSide::Short)
+                }
+                (Color::Black, Piece::King, Square::E8, Square::C8) => {
+                    CMoveKind::Castles(CastleSide::Long)
+                }
+                _ => {
+                    let captures = if let Some((_, captured_color)) = board.colored_piece_on(to) {
+                        captured_color != board.side_to_move()
+                    } else {
+                        false
+                    };
+                    let promotion = match (piece, color, to.rank()) {
+                        (Piece::Pawn, Color::Black, Rank::First)
+                        | (Piece::Pawn, Color::White, Rank::Eighth) => Some(Piece::Queen),
+                        _ => None,
+                    };
+                    CMoveKind::Regular(MoveDetails {
+                        piece,
+                        captures,
+                        dst_rank: from.rank(),
+                        dst_file: from.file(),
+                        src_rank: Some(from.rank()),
+                        src_file: Some(from.file()),
+                        promotion,
+                    })
+                }
+            };
+            let next_board = board.clone().update(self);
+            let check = next_board.is_check();
+            let checkmate = next_board.is_checkmate();
+            return Ok(CMove {
+                kind,
+                check,
+                color: board.side_to_move(),
+                checkmate,
+                comment: None,
+            });
+        };
+        Err(Error::ParseError(ParseKind::MoveToCMove))
+    }
     pub fn as_notation(self, board: &Board) -> String {
         let Move { from, to } = self;
         let piece = board.piece_on(from).unwrap();

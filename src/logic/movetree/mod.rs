@@ -6,7 +6,7 @@ use std::str::FromStr;
 use indextree::{Arena, NodeId};
 
 use crate::{
-    common::{board::Board, color::Color, r#move::Move, square::Square},
+    common::{board::Board, color::Color, square::Square},
     error::Error,
     Result,
 };
@@ -51,6 +51,7 @@ impl Default for MoveTree {
         MoveTree::new()
     }
 }
+
 impl MoveTree {
     pub fn new() -> Self {
         let mut tree: indextree::Arena<TreeNode> = indextree::Arena::new();
@@ -59,84 +60,48 @@ impl MoveTree {
         Self { tree, game_start }
     }
 
-    // pub fn add_new_move(&mut self, r#move: Move, parent: Option<NodeId>, board: &Board) -> NodeId {
-    //     match parent {
-    //         // If none, we are in starting position
-    //         // Check other children of GameStart and see if duplicate exists, if not add to tree
-    //         None => {
-    //             for child in self.game_start().children(&self.tree) {
-    //                 match self.tree[child].get() {
-    //                     TreeNode::StartVariation => child.children(self.tree).find_map(|c| {
-    //                         if let TreeNode::Move(fen, details) = self.tree[c].get() {
-    //                             Some(true)
-    //                         } else {
-    //                             None
-    //                         }
-    //                     }),
-    //                     TreeNode::Move(_, kind) => {
-    //                         if kind.to_san() == r#move.as_notation(board) {
-    //                             return child;
-    //                         } else {
-    //                             todo!("Add node to tree")
-    //                             // let node = self.tree.new_node(TreeNode::Move((), ()))
-    //                         }
-    //                     }
-    //                     TreeNode::Result(_) => continue,
-    //                     TreeNode::EndVariation | TreeNode::GameStart => unreachable!(),
-    //                 }
-    //             }
-    //             self.game_start()
-    //         }
-    //
-    //         Some(_) => todo!(),
-    //     }
-    //     // match parent {
-    //     //     None => {
-    //     //         // If displayed_node is none, we are in starting position
-    //     //         // Look for roots, dont append if root with same move exists
-    //     //         match self
-    //     //             .game_start()
-    //     //             .children(&self.tree)
-    //     //             .find(|node| self.tree()[*node].get().notation == r#move.as_notation(board))
-    //     //         {
-    //     //             Some(node) => node,
-    //     //             None => self.tree.new_node(TreeNode::new(
-    //     //                 r#move.as_notation(board),
-    //     //                 board.clone().update(r#move).to_string(),
-    //     //                 0,
-    //     //                 1,
-    //     //                 Color::White,
-    //     //             )),
-    //     //         }
-    //     //     }
-    //     //     Some(parent_node) => {
-    //     //         // if move already exists in tree, don't duplicate
-    //     //         if let Some(child) = parent_node
-    //     //             .children(self.get_tree())
-    //     //             .find(|n| self.get_tree()[*n].get().notation == r#move.as_notation(board))
-    //     //         {
-    //     //             child
-    //     //         } else {
-    //     //             // If my parent already has a child I should have depth +=1 of my parent
-    //     //             // If I am first child I should have same depth as my parent
-    //     //             let color = board.side_to_move();
-    //     //             let move_number = board.fullmoves();
-    //     //             let id = self.tree.new_node(TreeNode::new(
-    //     //                 r#move.as_notation(board),
-    //     //                 board.clone().update(r#move).to_string(),
-    //     //                 match parent_node.children(self.get_tree()).count() > 0 {
-    //     //                     true => self.get_tree()[parent_node].get().depth + 1,
-    //     //                     false => self.get_tree()[parent_node].get().depth,
-    //     //                 },
-    //     //                 move_number.try_into().unwrap(),
-    //     //                 color,
-    //     //             ));
-    //     //             parent_node.append(id, &mut self.tree);
-    //     //             id
-    //     //         }
-    //     //     }
-    //     // }
-    // }
+    pub fn add_new_move(&mut self, new_cmove: CMove, parent: NodeId, new_fen: String) -> NodeId {
+        // These chidren are potentail siblings
+        // If any of them are identical to the node we're adding we should skip it
+        let mut duplicate = None;
+        for child in parent.children(&self.tree) {
+            match self.tree[child].get() {
+                TreeNode::StartVariation => {
+                    let parent = self.tree.get(child).unwrap().parent().unwrap();
+                    match self.tree[parent].get() {
+                        TreeNode::GameStart => continue,
+                        TreeNode::Move(_, cmove) => {
+                            if *cmove == new_cmove {
+                                duplicate = Some(parent);
+                                break;
+                            }
+                        }
+                        TreeNode::EndVariation | TreeNode::StartVariation | TreeNode::Result(_) => {
+                            unreachable!()
+                        }
+                    }
+                }
+                TreeNode::Move(_, cmove) => {
+                    if *cmove == new_cmove {
+                        duplicate = Some(parent);
+                        break;
+                    }
+                }
+                TreeNode::GameStart => unreachable!(),
+                TreeNode::EndVariation | TreeNode::Result(_) => continue,
+            };
+        }
+
+        match duplicate {
+            Some(id) => id,
+            None => {
+                let node = self.tree.new_node(TreeNode::Move(new_fen, new_cmove));
+                parent.append(node, &mut self.tree);
+                node
+            }
+        }
+    }
+
     fn add_expression_to_tree(
         &mut self,
         expression: Expression,
@@ -210,12 +175,12 @@ impl MoveTree {
         }
     }
 
-    pub fn get_next_move(&self, node: Option<NodeId>) -> Vec<(NodeId, Fen, Notation)> {
-        node.unwrap_or(self.game_start).children(&self.tree).fold(
+    pub fn get_next_move(&self, node: NodeId) -> Vec<(NodeId, Fen, Notation)> {
+        node.children(&self.tree).fold(
             Vec::with_capacity(self.tree.capacity()),
             |mut acc, child| {
                 match self.tree[child].get() {
-                    TreeNode::StartVariation => acc.extend(self.get_next_move(Some(child))),
+                    TreeNode::StartVariation => acc.extend(self.get_next_move(child)),
                     TreeNode::Move(fen, cmove) => {
                         acc.push((child, fen.to_string(), cmove.to_san()))
                     }

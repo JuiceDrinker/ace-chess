@@ -23,12 +23,11 @@ mod prelude;
 mod styles;
 mod views;
 
-#[derive(Default)]
 struct App {
     board: Board,
     selected_square: Option<Square>,
     move_tree: MoveTree,
-    displayed_node: Option<indextree::NodeId>,
+    displayed_node: indextree::NodeId,
     next_move_options: Option<Vec<(indextree::NodeId, String)>>,
 }
 
@@ -43,7 +42,16 @@ impl Application for App {
     type Executor = executor::Default;
 
     fn new(_flags: Self::Flags) -> (App, iced::Command<Self::Message>) {
-        (Self::default(), Command::none())
+        let move_tree = MoveTree::new();
+        let displayed_node = move_tree.game_start();
+        let app = Self {
+            board: Board::default(),
+            selected_square: None,
+            move_tree,
+            displayed_node,
+            next_move_options: None,
+        };
+        (app, Command::none())
     }
 
     fn title(&self) -> String {
@@ -56,10 +64,16 @@ impl Application for App {
             Message::MakeMove(from, to, displayed_node) => {
                 let m = common::r#move::Move::new(from, to);
                 if self.board.is_legal(m) {
-                    // let new_node = self.move_tree.add_new_move(m, displayed_node, &self.board);
-                    self.board = self.board.update(m);
-                    self.selected_square = None;
-                    // self.displayed_node = Some(new_node);
+                    if let Ok(cmove) = m.try_into_cmove(self.board) {
+                        self.board = self.board.update(m);
+                        let new_node = self.move_tree.add_new_move(
+                            cmove,
+                            displayed_node,
+                            self.board.to_string(),
+                        );
+                        self.selected_square = None;
+                        self.displayed_node = new_node;
+                    }
                 } else if self.board.color_on_is(to, self.board.side_to_move()) {
                     self.selected_square = Some(to);
                 } else {
@@ -67,12 +81,11 @@ impl Application for App {
                 }
             }
             Message::GoPrevMove => {
-                if let Some(node) = self.displayed_node {
-                    let (id, fen) = self.move_tree.get_prev_move(node);
-                    self.board =
-                        Board::from_str(&fen).expect("Failed to load board from prev_move fen");
-                    self.displayed_node = Some(id);
-                }
+                dbg!("am I here or what");
+                let (id, fen) = self.move_tree.get_prev_move(self.displayed_node);
+                self.board =
+                    Board::from_str(&fen).expect("Failed to load board from prev_move fen");
+                self.displayed_node = id;
             }
             Message::GoNextMove => {
                 dbg!(&self.move_tree);
@@ -80,7 +93,7 @@ impl Application for App {
                     Ok(NextMoveOptions::Single(id, fen)) => {
                         self.board =
                             Board::from_str(&fen).expect("Failed to load board from next_move fen");
-                        self.displayed_node = Some(id);
+                        self.displayed_node = id;
                     }
                     Ok(NextMoveOptions::Multiple(options)) => {
                         self.next_move_options = Some(options);
@@ -95,7 +108,7 @@ impl Application for App {
                         Board::from_str(fen).expect("Failed to load board from next_move fen");
                 };
                 self.next_move_options = None;
-                self.displayed_node = Some(id);
+                self.displayed_node = id;
             }
             Message::InitLoadPgn => {
                 return clipboard::read(|content| {

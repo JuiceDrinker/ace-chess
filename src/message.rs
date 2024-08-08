@@ -4,7 +4,7 @@ use indextree::NodeId;
 #[derive(Clone, Debug)]
 pub enum Message {
     SelectSquare(Square),
-    MakeMove(Square, Square, Option<NodeId>),
+    MakeMove(Square, Square, NodeId),
     // HideNextMoveOptions,
     GoPrevMove,
     GoNextMove,

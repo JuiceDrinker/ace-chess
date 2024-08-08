@@ -136,30 +136,31 @@ impl Board {
     ///
     /// board.update(m);
     /// ```
-    pub fn update(&mut self, m: Move) -> Self {
-        let piece_from = self.piece_on(m.from).unwrap();
+    pub fn update(&mut self, cmove: Move) -> Self {
+        let piece_from = self.piece_on(cmove.from).unwrap();
         let side = self.side_to_move;
         let mut new_en_passant = false;
-        let reset_halfmove = self.piece_on_is(m.from, Piece::Pawn) || self.is_occupied(m.to);
+        let reset_halfmove =
+            self.piece_on_is(cmove.from, Piece::Pawn) || self.is_occupied(cmove.to);
 
         match piece_from {
             // Pawn: En Passant, promotion
             Piece::Pawn => {
-                self[m.from] = None;
-                self[m.to] = Some((Piece::Pawn, side));
+                self[cmove.from] = None;
+                self[cmove.to] = Some((Piece::Pawn, side));
                 // if En Passant: capture the pawn
-                if self.en_passant == Some(m.to) {
+                if self.en_passant == Some(cmove.to) {
                     match side {
-                        Color::White => self[m.to.down()] = None,
-                        Color::Black => self[m.to.up()] = None,
+                        Color::White => self[cmove.to.down()] = None,
+                        Color::Black => self[cmove.to.up()] = None,
                     }
                 }
                 // Set self.en_passant
-                if m.distance() == 2 {
-                    if self.on_is(m.to.left(), (Piece::Pawn, !side))
-                        || self.on_is(m.to.right(), (Piece::Pawn, !side))
+                if cmove.distance() == 2 {
+                    if self.on_is(cmove.to.left(), (Piece::Pawn, !side))
+                        || self.on_is(cmove.to.right(), (Piece::Pawn, !side))
                     {
-                        self.en_passant = Some(m.to.backward(side));
+                        self.en_passant = Some(cmove.to.backward(side));
                         new_en_passant = true;
                     }
                 } else {
@@ -168,34 +169,36 @@ impl Board {
 
                 // Promotion
                 // TODO: Give user option on what piece to promote to
-                if m.to.rank_for(side) == Rank::Eighth {
-                    self[m.to] = Some((Piece::Queen, side));
+                if cmove.to.rank_for(side) == Rank::Eighth {
+                    self[cmove.to] = Some((Piece::Queen, side));
                 }
             }
             // King: Castle
             Piece::King => {
-                if m.from.distance(m.to) == 2 {
-                    if self.castle_rights(side).has_kingside() && m.from.file() < m.to.file() {
+                if cmove.from.distance(cmove.to) == 2 {
+                    if self.castle_rights(side).has_kingside()
+                        && cmove.from.file() < cmove.to.file()
+                    {
                         // if is a Castle - Kingside
-                        self[m.from] = None;
-                        self[m.to] = Some((Piece::King, side));
-                        self[m.to.right()] = None;
-                        self[m.to.left()] = Some((Piece::Rook, side));
+                        self[cmove.from] = None;
+                        self[cmove.to] = Some((Piece::King, side));
+                        self[cmove.to.right()] = None;
+                        self[cmove.to.left()] = Some((Piece::Rook, side));
                     } else if self.castle_rights(side).has_queenside()
-                        && m.to.file() < m.from.file()
+                        && cmove.to.file() < cmove.from.file()
                     {
                         // if is a Castle - Queenside
-                        self[m.from] = None;
-                        self[m.to] = Some((Piece::King, side));
-                        self[m.to.left().left()] = None;
-                        self[m.to.right()] = Some((Piece::Rook, side));
+                        self[cmove.from] = None;
+                        self[cmove.to] = Some((Piece::King, side));
+                        self[cmove.to.left().left()] = None;
+                        self[cmove.to.right()] = Some((Piece::Rook, side));
                     } else {
-                        panic!("Error::InvalidMove: Board: {self}, invalid_move: {m}");
+                        panic!("Error::InvalidMove: Board: {self}, invalid_move: {cmove}");
                     }
                 } else {
                     // normal move
-                    self[m.from] = None;
-                    self[m.to] = Some((Piece::King, side));
+                    self[cmove.from] = None;
+                    self[cmove.to] = Some((Piece::King, side));
                 }
 
                 // If the king move he lost both CastleRights
@@ -204,7 +207,7 @@ impl Board {
             // Rook: Castle
             Piece::Rook => {
                 // remove CastleRights
-                match m.from {
+                match cmove.from {
                     Square::A1 | Square::A8 => {
                         self.remove_castle_rights(side, CastleRights::QueenSide);
                     }
@@ -213,12 +216,12 @@ impl Board {
                     }
                     _ => {}
                 }
-                self[m.from] = None;
-                self[m.to] = Some((Piece::Rook, side));
+                self[cmove.from] = None;
+                self[cmove.to] = Some((Piece::Rook, side));
             }
             _ => {
-                self[m.from] = None;
-                self[m.to] = Some((piece_from, side));
+                self[cmove.from] = None;
+                self[cmove.to] = Some((piece_from, side));
             }
         }
 
@@ -270,6 +273,9 @@ impl Board {
         self.castle_rights[color.as_index()] = CastleRights::from_index(index);
     }
 
+    pub fn colored_piece_on(&self, square: Square) -> Option<(Piece, Color)> {
+        self.squares[square.as_index()]
+    }
     /// Get the [`Piece`] at a given [`Square`].
     pub fn piece_on(&self, square: Square) -> Option<Piece> {
         self.squares[square.as_index()].map(|(piece, _)| piece)
@@ -348,6 +354,11 @@ impl Board {
         let king_square = self.king_of(self.side_to_move);
         let enemy_color = !self.side_to_move;
         self.is_targeted(king_square, enemy_color)
+    }
+
+    // TODO: Does this work?
+    pub fn is_checkmate(&self) -> bool {
+        self.is_check() && self.has_any_move()
     }
 
     /// Verify if a move expose the king (used for legality).
