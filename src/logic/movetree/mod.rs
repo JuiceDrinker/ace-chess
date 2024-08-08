@@ -261,10 +261,9 @@ fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
                 // Handle disambiguation
                 let mut from_square = None;
                 for square in potential_source_squares {
-                    if (details.disam_file.is_some()
-                        && square.file() == details.disam_file.unwrap())
-                        || (details.disam_rank.is_some()
-                            && square.rank() == details.disam_rank.unwrap())
+                    if (details.src_file.is_some() && square.file() == details.src_file.unwrap())
+                        || (details.src_rank.is_some()
+                            && square.rank() == details.src_rank.unwrap())
                     {
                         from_square = Some(square);
                         break;
@@ -304,8 +303,8 @@ mod test {
                     dst_rank: Rank::Fourth,
                     dst_file: File::D,
                     captures: false,
-                    disam_rank: None,
-                    disam_file: None,
+                    src_rank: None,
+                    src_file: None,
                     promotion: None,
                 }),
                 check: false,

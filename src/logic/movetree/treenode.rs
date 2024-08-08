@@ -42,10 +42,10 @@ impl CMove {
                 }
 
                 // Add disambiguation if necessary
-                if let Some(file) = details.disam_file {
+                if let Some(file) = details.src_file {
                     san.push_str(file.as_str());
                 }
-                if let Some(rank) = details.disam_rank {
+                if let Some(rank) = details.src_rank {
                     san.push_str(&format!("{}", rank));
                 }
 
@@ -54,7 +54,7 @@ impl CMove {
                     if details.piece == Piece::Pawn {
                         san.push_str(
                             details
-                                .disam_file
+                                .src_file
                                 .expect("pawn captures must have disambiguation for file")
                                 .as_str(),
                         );
@@ -107,8 +107,8 @@ pub struct MoveDetails {
     pub dst_rank: Rank,
     pub dst_file: File,
     pub captures: bool,
-    pub disam_rank: Option<Rank>,
-    pub disam_file: Option<File>,
+    pub src_rank: Option<Rank>,
+    pub src_file: Option<File>,
     pub promotion: Option<Piece>,
 }
 

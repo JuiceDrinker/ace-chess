@@ -368,8 +368,8 @@ impl<'a> PgnParser<'a> {
                         dst_rank: rank,
                         dst_file: file,
                         captures: false,
-                        disam_rank: None,
-                        disam_file: None,
+                        src_rank: None,
+                        src_file: None,
                         promotion: Some(piece),
                     };
                     return Ok(CMoveKind::Regular(cmove));
@@ -380,8 +380,8 @@ impl<'a> PgnParser<'a> {
                     dst_rank: rank,
                     dst_file: file,
                     captures: false,
-                    disam_rank: None,
-                    disam_file: None,
+                    src_rank: None,
+                    src_file: None,
                     promotion: None,
                 };
                 return Ok(CMoveKind::Regular(cmove));
@@ -396,8 +396,8 @@ impl<'a> PgnParser<'a> {
                                 dst_rank: rank,
                                 dst_file,
                                 captures: true,
-                                disam_rank: None,
-                                disam_file: Some(file),
+                                src_rank: None,
+                                src_file: Some(file),
                                 promotion: Some(piece),
                             };
                             return Ok(CMoveKind::Regular(cmove));
@@ -408,8 +408,8 @@ impl<'a> PgnParser<'a> {
                             dst_rank: rank,
                             dst_file,
                             captures: true,
-                            disam_rank: None,
-                            disam_file: Some(file),
+                            src_rank: None,
+                            src_file: Some(file),
                             promotion: None,
                         };
                         return Ok(CMoveKind::Regular(cmove));
@@ -487,8 +487,8 @@ impl<'a> PgnParser<'a> {
                         dst_rank: rank,
                         dst_file,
                         captures: false,
-                        disam_rank: None,
-                        disam_file: Some(file),
+                        src_rank: None,
+                        src_file: Some(file),
                         promotion: None,
                     };
                     return Ok(CMoveKind::Regular(cmove));
@@ -500,8 +500,8 @@ impl<'a> PgnParser<'a> {
                     dst_rank: rank,
                     dst_file: file,
                     captures: false,
-                    disam_rank: None,
-                    disam_file: None,
+                    src_rank: None,
+                    src_file: None,
                     promotion: None,
                 };
                 return Ok(CMoveKind::Regular(cmove));
@@ -521,8 +521,8 @@ impl<'a> PgnParser<'a> {
                         dst_rank: rank,
                         dst_file: file,
                         captures: false,
-                        disam_rank: Some(source_rank),
-                        disam_file: None,
+                        src_rank: Some(source_rank),
+                        src_file: None,
                         promotion: None,
                     };
                     return Ok(CMoveKind::Regular(cmove));
@@ -553,8 +553,8 @@ impl<'a> PgnParser<'a> {
                         dst_rank: rank,
                         dst_file: file,
                         captures: true,
-                        disam_rank: None,
-                        disam_file: None,
+                        src_rank: None,
+                        src_file: None,
                         promotion: None,
                     };
                     return Ok(CMoveKind::Regular(cmove));
@@ -575,8 +575,8 @@ impl<'a> PgnParser<'a> {
                             dst_rank: rank,
                             dst_file,
                             captures: true,
-                            disam_rank: None,
-                            disam_file: Some(src_file),
+                            src_rank: None,
+                            src_file: Some(src_file),
                             promotion: None,
                         };
                         return Ok(CMoveKind::Regular(cmove));
@@ -598,8 +598,8 @@ impl<'a> PgnParser<'a> {
                             dst_rank: to_rank,
                             dst_file: file,
                             captures: true,
-                            disam_rank: Some(from_rank),
-                            disam_file: None,
+                            src_rank: Some(from_rank),
+                            src_file: None,
                             promotion: None,
                         };
                         return Ok(CMoveKind::Regular(cmove));
@@ -738,8 +738,8 @@ mod test {
                         dst_rank: Rank::Fourth,
                         dst_file: File::D,
                         captures: false,
-                        disam_rank: None,
-                        disam_file: None,
+                        src_rank: None,
+                        src_file: None,
                         promotion: None,
                     }
                 }),
@@ -802,8 +802,8 @@ mod test {
                     dst_rank: Rank::Fourth,
                     dst_file: File::D,
                     captures: false,
-                    disam_rank: None,
-                    disam_file: None,
+                    src_rank: None,
+                    src_file: None,
                     promotion: None,
                 }
             })
