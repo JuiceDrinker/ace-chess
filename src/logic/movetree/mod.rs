@@ -5,20 +5,39 @@ use std::str::FromStr;
 
 use indextree::{Arena, NodeId};
 
-use crate::common::{board::Board, color::Color, square::Square};
+use crate::{
+    common::{board::Board, color::Color, square::Square},
+    error::Error,
+    Result,
+};
 
 use self::{
-    pgn::{
-        errors::PgnParseError,
-        parser::{Expression, STARTING_POSITION_FEN},
-    },
-    treenode::{CMove, CMoveKind, CastleSide, Fen, MoveDetails, Notation, TreeNode},
+    pgn::parser::{Expression, STARTING_POSITION_FEN},
+    treenode::{CMove, CMoveKind, CastleSide, Fen, Notation, TreeNode},
 };
 
 #[derive(Clone, Debug)]
 pub enum NextMoveOptions {
-    Single(NodeId, String),
+    Single(NodeId, Fen),
     Multiple(Vec<(NodeId, Notation)>),
+}
+
+impl NextMoveOptions {
+    pub fn new(options: Vec<(NodeId, Fen, Notation)>) -> Result<Self> {
+        match options.len() {
+            0 => Err(Error::NoNextMove),
+            1 => {
+                let (id, fen, _) = options.first().cloned().unwrap();
+                Ok(NextMoveOptions::Single(id, fen))
+            }
+            _ => Ok(NextMoveOptions::Multiple(
+                options
+                    .into_iter()
+                    .map(|(id, _, notation)| (id, notation))
+                    .collect(),
+            )),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -27,8 +46,13 @@ pub struct MoveTree {
     game_start: NodeId,
 }
 
+impl Default for MoveTree {
+    fn default() -> Self {
+        MoveTree::new()
+    }
+}
 impl MoveTree {
-    fn new() -> Self {
+    pub fn new() -> Self {
         let mut tree: indextree::Arena<TreeNode> = indextree::Arena::new();
         let game_start = tree.new_node(TreeNode::GameStart);
 
@@ -40,13 +64,13 @@ impl MoveTree {
         expression: Expression,
         current: &indextree::NodeId,
         current_fen: Fen,
-    ) -> Result<(indextree::NodeId, Fen), PgnParseError> {
+    ) -> (indextree::NodeId, Fen) {
         match expression {
             Expression::Move(cmove) => {
                 let fen = generate_next_fen(&current_fen, &cmove);
                 let new_node = self.tree.new_node(TreeNode::Move(fen.clone(), cmove));
                 current.append(new_node, &mut self.tree);
-                Ok((new_node, fen))
+                (new_node, fen)
             }
             Expression::Variation(expressions) => {
                 let parent_fen = self.find_parent_fen(current);
@@ -58,7 +82,7 @@ impl MoveTree {
 
                 for expression in expressions {
                     let (node, fen) =
-                        self.add_expression_to_tree(expression, &var_current, var_fen.clone())?;
+                        self.add_expression_to_tree(expression, &var_current, var_fen.clone());
                     // Only update var_current and var_fen if we're not returning from a nested variation
                     if !matches!(self.tree[node].get(), TreeNode::EndVariation) {
                         var_current = node;
@@ -68,10 +92,10 @@ impl MoveTree {
                 let new_node = self.tree.new_node(TreeNode::EndVariation);
                 var_current.append(new_node, &mut self.tree);
                 // Return the original FEN, not the variation's last FEN
-                Ok((new_node, current_fen))
+                (new_node, current_fen)
             }
             Expression::Sequence(first, second) => {
-                let (node1, fen) = self.add_expression_to_tree(*first, current, current_fen)?;
+                let (node1, fen) = self.add_expression_to_tree(*first, current, current_fen);
                 self.add_expression_to_tree(*second, &node1, fen)
             }
         }
@@ -96,13 +120,15 @@ impl MoveTree {
         }
     }
 
-    pub fn get_next_move(&self, node: Option<NodeId>) -> Vec<(NodeId, String)> {
+    pub fn get_next_move(&self, node: Option<NodeId>) -> Vec<(NodeId, Fen, Notation)> {
         node.unwrap_or(self.game_start).children(&self.tree).fold(
             Vec::with_capacity(self.tree.capacity()),
             |mut acc, child| {
                 match self.tree[child].get() {
                     TreeNode::StartVariation => acc.extend(self.get_next_move(Some(child))),
-                    TreeNode::Move(_, cmove) => acc.push((child, cmove.to_san())),
+                    TreeNode::Move(fen, cmove) => {
+                        acc.push((child, fen.to_string(), cmove.to_san()))
+                    }
                     TreeNode::EndVariation | TreeNode::GameStart | TreeNode::Result(_) => (),
                 }
                 acc
@@ -117,7 +143,6 @@ impl MoveTree {
 
 fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
     // NOTE: Currently board struct only handles promotion to queen
-    dbg!(current_fen);
     let mut board = Board::from_str(current_fen).expect("To be able to create a valid fen");
 
     match &cmove.kind {
@@ -137,7 +162,7 @@ fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
             let potential_source_squares = board.get_valid_moves_to(dest, details.piece);
             // assert!(!src.is_empty());
 
-            if dbg!(potential_source_squares.clone()).len() == 1 {
+            if potential_source_squares.len() == 1 {
                 board.update(crate::common::r#move::Move {
                     from: potential_source_squares.into_iter().next().unwrap(),
                     to: dest,
@@ -165,6 +190,44 @@ fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
 
             board.to_string()
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        common::{color::Color, file::File, piece::Piece, rank::Rank},
+        logic::movetree::{
+            generate_next_fen,
+            pgn::parser::STARTING_POSITION_FEN,
+            treenode::{CMove, CMoveKind, MoveDetails},
+        },
+    };
+
+    #[test]
+    fn next_fen() {
+        let res = generate_next_fen(
+            STARTING_POSITION_FEN,
+            &CMove {
+                kind: CMoveKind::Regular(MoveDetails {
+                    piece: Piece::Pawn,
+                    dst_rank: Rank::Fourth,
+                    dst_file: File::D,
+                    captures: false,
+                    disam_rank: None,
+                    disam_file: None,
+                    promotion: None,
+                }),
+                check: false,
+                color: Color::White,
+                checkmate: false,
+                comment: None,
+            },
+        );
+        assert_eq!(
+            res,
+            "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1"
+        );
     }
 }
 // impl MoveTree {

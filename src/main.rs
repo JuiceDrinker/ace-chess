@@ -1,4 +1,3 @@
-// use crate::{common::file::File, logic::movetree::pgn::STARTING_POSITION_FEN};
 use crate::{
     common::file::File,
     logic::movetree::pgn::{lexer::tokenize, parser::PgnParser},
@@ -6,15 +5,15 @@ use crate::{
 use common::{board::Board, rank::Rank, square::Square};
 use iced::{
     alignment, clipboard, executor, keyboard,
-    widget::{container, responsive, row, Button, Column, Container, Image, Row, Text},
+    widget::{self, container, responsive, row, Button, Column, Container, Image, Row, Text},
     Alignment, Application, Command, Element, Length, Subscription,
 };
 
-use logic::movetree::MoveTree;
+use logic::movetree::{MoveTree, NextMoveOptions};
 use message::Message;
 use prelude::Result;
 use std::str::FromStr;
-use views::modal::modal::Modal;
+use views::modal::Modal;
 
 mod common;
 mod error;
@@ -84,24 +83,29 @@ impl Application for App {
                     // }
                 }
             }
-            Message::GoNextMove => match self.move_tree.get_next_move(self.displayed_node) {
-                Ok(NextMoveOptions::Single(id, fen)) => {
+            Message::GoNextMove => {
+                dbg!(&self.move_tree);
+                match NextMoveOptions::new(self.move_tree.get_next_move(self.displayed_node)) {
+                    Ok(NextMoveOptions::Single(id, fen)) => {
+                        self.board =
+                            Board::from_str(&fen).expect("Failed to load board from next_move fen");
+                        self.displayed_node = Some(id);
+                    }
+                    Ok(NextMoveOptions::Multiple(options)) => {
+                        self.next_move_options = Some(options);
+                        return widget::focus_next();
+                    }
+                    Err(_) => eprintln!("Could not get next move"),
+                }
+            }
+            Message::GoToNode(id) => {
+                if let Some(fen) = self.move_tree.get_fen_for_node(id) {
                     self.board =
-                        Board::from_str(&fen).expect("Failed to load board from next_move fen");
-                    self.displayed_node = Some(id);
-                }
-                Ok(NextMoveOptions::Multiple(options)) => {
-                    self.next_move_options = Some(options);
-                    return widget::focus_next();
-                }
-                Err(_) => eprintln!("Could not get next move"),
-            },
-            // Message::GoToNode(id) => {
-            //     let fen = self.move_tree.get_fen_for_node(id);
-            //     self.board = Board::from_str(fen).expect("Failed to load board from next_move fen");
-            //     self.next_move_options = None;
-            //     self.displayed_node = Some(id);
-            // }
+                        Board::from_str(fen).expect("Failed to load board from next_move fen");
+                };
+                self.next_move_options = None;
+                self.displayed_node = Some(id);
+            }
             Message::InitLoadPgn => {
                 return clipboard::read(|content| {
                     if let Some(content) = content {
@@ -214,7 +218,7 @@ impl Application for App {
                     )
                     .on_press(Message::GoToNode(*node))
                     .style(styles::ButtonStyle::Normal)
-                    // .height(Length::Fill)
+                    .height(Length::Fill)
                     .width(Length::Fill)
                     .into()
                 }));

@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::common::color::Color;
 use crate::common::file::File;
 use crate::common::piece::Piece;

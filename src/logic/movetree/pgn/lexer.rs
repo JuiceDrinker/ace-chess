@@ -75,8 +75,6 @@ pub enum Token {
     Checkmate,
     StartVariation,
     EndVariation,
-    CastleShort,
-    CastleLong,
     Invalid,
 }
 

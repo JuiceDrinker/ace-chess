@@ -62,28 +62,22 @@ impl<'a> PgnParser<'a> {
         let mut move_tree = MoveTree::new();
 
         let mut current_fen = String::from(STARTING_POSITION_FEN);
-        let root = move_tree.0.new_node(TreeNode::GameStart);
-        let mut current = root;
+        let mut current = move_tree.game_start();
 
         while let Ok(expression) = self.expression() {
             let (node, fen) =
-                move_tree.add_expression_to_tree(expression, &current, current_fen.clone())?;
-            if !matches!(move_tree.0[node].get(), TreeNode::EndVariation) {
+                move_tree.add_expression_to_tree(expression, &current, current_fen.clone());
+            if !matches!(move_tree.tree[node].get(), TreeNode::EndVariation) {
                 current = node;
                 current_fen = fen;
             }
-            dbg!(&self.tokens);
-            // dbg!(move_tree.clone());
         }
 
-        dbg!(&self.tokens);
-        dbg!("here??");
-        // dbg!(move_tree.clone());
         let result = self.result()?;
-        let new_node = move_tree.0.new_node(TreeNode::Result(result));
-        current.append(new_node, &mut move_tree.0);
+        let new_node = move_tree.tree.new_node(TreeNode::Result(result));
+        current.append(new_node, &mut move_tree.tree);
 
-        // dbg!(move_tree.clone());
+        // dbg!(&move_tree);
         Ok(move_tree)
     }
 
@@ -146,8 +140,6 @@ impl<'a> PgnParser<'a> {
     fn result(&mut self) -> Result<CResult, PgnParseError> {
         let iter_save = self.tokens.clone();
         let cursor_save = self.cursor;
-
-        dbg!(&self.tokens);
 
         match self.tokens.peek() {
             Some(Token::Number(1)) => {
@@ -445,13 +437,28 @@ impl<'a> PgnParser<'a> {
 
     fn castle(&mut self) -> Result<CMoveKind, PgnParseError> {
         match self.tokens.peek() {
-            Some(Token::CastleLong) => {
+            Some(Token::Number(0)) => {
+                let iter_save = self.tokens.clone();
+                let cursor_save = self.cursor;
+
                 self.consume();
-                Ok(CMoveKind::Castles(CastleSide::Long))
-            }
-            Some(Token::CastleShort) => {
-                self.consume();
-                Ok(CMoveKind::Castles(CastleSide::Long))
+                if let Some(Token::Hyphen) = self.tokens.peek() {
+                    self.consume();
+                    if let Some(Token::Number(0)) = self.tokens.peek() {
+                        self.consume();
+                        if let Some(Token::Hyphen) = self.tokens.peek() {
+                            self.consume();
+                            if let Some(Token::Number(0)) = self.tokens.peek() {
+                                return Ok(CMoveKind::Castles(CastleSide::Long));
+                            }
+                        }
+                        return Ok(CMoveKind::Castles(CastleSide::Short));
+                    }
+                }
+
+                self.tokens = iter_save;
+                self.cursor = cursor_save;
+                Err(PgnParseError::castle_parsing_error(self.cursor))
             }
             Some(_) => Err(PgnParseError::castle_parsing_error(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
@@ -810,18 +817,30 @@ mod test {
         assert_eq!(res.len(), 1)
     }
 
+    // #[test]
+    // fn debug() {
+    //     let tokens = tokenize(
+    //         "1. e4 e5 2. Nf3 Nc6 3. Bb5  3... a6
+    //                      4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 Nbd7
+    //     11. c4 c6 12. cxb5 axb5 13. Nc3 Bb7 14. Bg5 b4 15. Nb1 h6 16. Bh4 c5 17. dxe5
+    //                 Nxe4 18. Bxe7 Qxe7 19. exd6 Qf6 20. Nbd2 Nxd6 21. Nc4 Nxc4 22. Bxc4 Nb6
+    //                 23. Ne5 Rae8 24. Bxf7+ Rxf7 25. Nxf7 Rxe1+ 26. Qxe1 Kxf7 27. Qe3 Qg5 28. Qxg5
+    //                 hxg5 29. b3 Ke6 30. a3 Kd6 31. axb4 cxb4 32. Ra5 Nd5 33. f3 Bc8 34. Kf2 Bf5
+    //                 35. Ra7 g6 36. Ra6+ Kc5 37. Ke1 Nf4 38. g3 Nxh3 39. Kd2 Kb5 40. Rd6 Kc5 41. Ra6
+    //                 Nf2 42. g4 Bd3 43. Re6
+    //         1/2-1/2",
+    //     );
+    //
+    //     let pgn = PgnParser::new(tokens.iter()).parse();
+    //     assert_eq!(pgn, Ok(MoveTree::new()));
+    // }
+
     #[test]
     fn parses_variations() {
         let tokens = tokenize("1.d4 e5 (1... Nf6 2. Nh3 (Nf3)) 0-1");
-        let res = PgnParser::new(tokens.iter()).parse().unwrap();
+        let res = PgnParser::new(tokens.iter()).parse();
 
-        dbg!(res
-            .clone()
-            .get_tree_roots()
-            .first()
-            .unwrap()
-            .debug_pretty_print(&res.clone().0));
-        assert_eq!(res, MoveTree::new());
+        assert!(res.is_ok());
     }
 
     #[test]
