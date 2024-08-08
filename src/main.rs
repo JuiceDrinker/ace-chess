@@ -67,20 +67,11 @@ impl Application for App {
                 }
             }
             Message::GoPrevMove => {
-                if let Some(n) = self.displayed_node {
-                    // match self.move_tree.get_prev_move(n) {
-                    //     Ok((id, fen)) => {
-                    //         self.board = Board::from_str(fen)
-                    //             .expect("Failed to load board from prev_move fen");
-                    //         self.displayed_node = Some(id);
-                    //     }
-                    //     Err(e) => {
-                    //         eprintln!("Could not get prev move: {:?}", e);
-                    //         eprintln!("Going to starting position");
-                    //         self.board = Board::from_str(STARTING_POSITION_FEN).unwrap();
-                    //         self.displayed_node = None;
-                    //     }
-                    // }
+                if let Some(node) = self.displayed_node {
+                    let (id, fen) = self.move_tree.get_prev_move(node);
+                    self.board =
+                        Board::from_str(&fen).expect("Failed to load board from prev_move fen");
+                    self.displayed_node = Some(id);
                 }
             }
             Message::GoNextMove => {
@@ -122,10 +113,8 @@ impl Application for App {
                     dbg!("Im here I swear 2 ");
                     self.move_tree = parsed.clone();
                     dbg!(parsed.clone());
-                    // self.move_tree.load(parsed.0)
                 }
             }
-            _ => {}
         }
         Command::none()
     }

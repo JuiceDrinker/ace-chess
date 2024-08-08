@@ -6,7 +6,7 @@ use std::str::FromStr;
 use indextree::{Arena, NodeId};
 
 use crate::{
-    common::{board::Board, color::Color, square::Square},
+    common::{board::Board, color::Color, r#move::Move, square::Square},
     error::Error,
     Result,
 };
@@ -59,6 +59,84 @@ impl MoveTree {
         Self { tree, game_start }
     }
 
+    // pub fn add_new_move(&mut self, r#move: Move, parent: Option<NodeId>, board: &Board) -> NodeId {
+    //     match parent {
+    //         // If none, we are in starting position
+    //         // Check other children of GameStart and see if duplicate exists, if not add to tree
+    //         None => {
+    //             for child in self.game_start().children(&self.tree) {
+    //                 match self.tree[child].get() {
+    //                     TreeNode::StartVariation => child.children(self.tree).find_map(|c| {
+    //                         if let TreeNode::Move(fen, details) = self.tree[c].get() {
+    //                             Some(true)
+    //                         } else {
+    //                             None
+    //                         }
+    //                     }),
+    //                     TreeNode::Move(_, kind) => {
+    //                         if kind.to_san() == r#move.as_notation(board) {
+    //                             return child;
+    //                         } else {
+    //                             todo!("Add node to tree")
+    //                             // let node = self.tree.new_node(TreeNode::Move((), ()))
+    //                         }
+    //                     }
+    //                     TreeNode::Result(_) => continue,
+    //                     TreeNode::EndVariation | TreeNode::GameStart => unreachable!(),
+    //                 }
+    //             }
+    //             self.game_start()
+    //         }
+    //
+    //         Some(_) => todo!(),
+    //     }
+    //     // match parent {
+    //     //     None => {
+    //     //         // If displayed_node is none, we are in starting position
+    //     //         // Look for roots, dont append if root with same move exists
+    //     //         match self
+    //     //             .game_start()
+    //     //             .children(&self.tree)
+    //     //             .find(|node| self.tree()[*node].get().notation == r#move.as_notation(board))
+    //     //         {
+    //     //             Some(node) => node,
+    //     //             None => self.tree.new_node(TreeNode::new(
+    //     //                 r#move.as_notation(board),
+    //     //                 board.clone().update(r#move).to_string(),
+    //     //                 0,
+    //     //                 1,
+    //     //                 Color::White,
+    //     //             )),
+    //     //         }
+    //     //     }
+    //     //     Some(parent_node) => {
+    //     //         // if move already exists in tree, don't duplicate
+    //     //         if let Some(child) = parent_node
+    //     //             .children(self.get_tree())
+    //     //             .find(|n| self.get_tree()[*n].get().notation == r#move.as_notation(board))
+    //     //         {
+    //     //             child
+    //     //         } else {
+    //     //             // If my parent already has a child I should have depth +=1 of my parent
+    //     //             // If I am first child I should have same depth as my parent
+    //     //             let color = board.side_to_move();
+    //     //             let move_number = board.fullmoves();
+    //     //             let id = self.tree.new_node(TreeNode::new(
+    //     //                 r#move.as_notation(board),
+    //     //                 board.clone().update(r#move).to_string(),
+    //     //                 match parent_node.children(self.get_tree()).count() > 0 {
+    //     //                     true => self.get_tree()[parent_node].get().depth + 1,
+    //     //                     false => self.get_tree()[parent_node].get().depth,
+    //     //                 },
+    //     //                 move_number.try_into().unwrap(),
+    //     //                 color,
+    //     //             ));
+    //     //             parent_node.append(id, &mut self.tree);
+    //     //             id
+    //     //         }
+    //     //     }
+    //     // }
+    // }
     fn add_expression_to_tree(
         &mut self,
         expression: Expression,
@@ -117,6 +195,18 @@ impl MoveTree {
         match self.tree[id].get() {
             TreeNode::Move(fen, _) => Some(fen),
             _ => None,
+        }
+    }
+
+    pub fn get_prev_move(&self, id: NodeId) -> (NodeId, Fen) {
+        match id.ancestors(&self.tree).next() {
+            Some(parent_id) => match self.tree[parent_id].get() {
+                TreeNode::GameStart => (self.game_start(), STARTING_POSITION_FEN.to_string()),
+                TreeNode::StartVariation => self.get_prev_move(parent_id),
+                TreeNode::Move(fen, _) => (parent_id, fen.to_string()),
+                TreeNode::EndVariation | TreeNode::Result(_) => unreachable!(),
+            },
+            None => (self.game_start(), STARTING_POSITION_FEN.to_string()),
         }
     }
 
@@ -250,13 +340,6 @@ mod test {
 //     //     &self.tree[id].get().notation
 //     // }
 //
-//     pub fn get_prev_move(&self, id: NodeId) -> Result<(NodeId, &str)> {
-//         match id.ancestors(self.get_tree()).nth(1) {
-//             // 0th value is node itself    ^
-//             Some(prev_id) => Ok((prev_id, self.get_fen_for_node(prev_id))),
-//             None => Err(Error::NoPrevMove),
-//         }
-//     }
 //
 //     pub fn generate_pgn(&self) -> String {
 //         match self.get_tree_roots().first() {
@@ -317,52 +400,4 @@ mod test {
 //     }
 //
 //
-//     pub fn add_new_move(&mut self, r#move: Move, parent: Option<NodeId>, board: &Board) -> NodeId {
-//         match parent {
-//             None => {
-//                 // If displayed_node is none, we are in starting position
-//                 // Look for roots, dont append if root with same move exists
-//                 match self
-//                     .get_tree_roots()
-//                     .into_iter()
-//                     .find(|n| self.get_tree()[*n].get().notation == r#move.as_notation(board))
-//                 {
-//                     Some(node) => node,
-//                     None => self.tree.new_node(TreeNode::new(
-//                         r#move.as_notation(board),
-//                         board.clone().update(r#move).to_string(),
-//                         0,
-//                         1,
-//                         Color::White,
-//                     )),
-//                 }
-//             }
-//             Some(parent_node) => {
-//                 // if move already exists in tree, don't duplicate
-//                 if let Some(child) = parent_node
-//                     .children(self.get_tree())
-//                     .find(|n| self.get_tree()[*n].get().notation == r#move.as_notation(board))
-//                 {
-//                     child
-//                 } else {
-//                     // If my parent already has a child I should have depth +=1 of my parent
-//                     // If I am first child I should have same depth as my parent
-//                     let color = board.side_to_move();
-//                     let move_number = board.fullmoves();
-//                     let id = self.tree.new_node(TreeNode::new(
-//                         r#move.as_notation(board),
-//                         board.clone().update(r#move).to_string(),
-//                         match parent_node.children(self.get_tree()).count() > 0 {
-//                             true => self.get_tree()[parent_node].get().depth + 1,
-//                             false => self.get_tree()[parent_node].get().depth,
-//                         },
-//                         move_number.try_into().unwrap(),
-//                         color,
-//                     ));
-//                     parent_node.append(id, &mut self.tree);
-//                     id
-//                 }
-//             }
-//         }
-//     }
 // }
