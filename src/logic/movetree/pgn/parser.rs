@@ -77,7 +77,6 @@ impl<'a> PgnParser<'a> {
         let new_node = move_tree.tree.new_node(TreeNode::Result(result));
         current.append(new_node, &mut move_tree.tree);
 
-        // dbg!(&move_tree);
         Ok(move_tree)
     }
 
@@ -148,7 +147,6 @@ impl<'a> PgnParser<'a> {
                     Some(Token::Hyphen) => {
                         self.consume();
                         if let Some(Token::Number(0)) = self.tokens.peek() {
-                            dbg!("I get here right?");
                             self.consume();
                             Ok(CResult::WhiteWins)
                         } else {

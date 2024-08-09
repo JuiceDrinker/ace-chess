@@ -62,12 +62,8 @@ impl Application for App {
         match message {
             Message::SelectSquare(square) => self.selected_square = Some(square),
             Message::MakeMove(attempted_move, displayed_node) => {
-                dbg!(attempted_move);
-                dbg!("getting here 3?");
                 if self.board.is_legal(attempted_move) {
-                    dbg!("getting here 2?");
                     if let Ok(cmove) = attempted_move.try_into_cmove(self.board) {
-                        dbg!("getting here ");
                         self.board = self.board.update(attempted_move);
                         let new_node = self.move_tree.add_new_move(
                             cmove,
@@ -91,15 +87,12 @@ impl Application for App {
                 }
             }
             Message::GoPrevMove => {
-                dbg!("am I here or what");
                 let (id, fen) = self.move_tree.get_prev_move(self.displayed_node);
                 self.board =
                     Board::from_str(&fen).expect("Failed to load board from prev_move fen");
                 self.displayed_node = id;
-                dbg!("am I here or what");
             }
             Message::GoNextMove => {
-                dbg!(&self.move_tree);
                 match NextMoveOptions::new(self.move_tree.get_next_move(self.displayed_node)) {
                     Ok(NextMoveOptions::Single(id, fen)) => {
                         self.board =
@@ -131,12 +124,9 @@ impl Application for App {
                 })
             }
             Message::LoadPgn(pgn) => {
-                dbg!("Im here I swear");
                 let tokens = tokenize(&pgn);
                 if let Ok(parsed) = PgnParser::new(tokens.iter()).parse() {
-                    dbg!("Im here I swear 2 ");
                     self.move_tree = parsed.clone();
-                    dbg!(parsed.clone());
                 }
             }
         }
@@ -260,7 +250,6 @@ impl Application for App {
                 Some(Message::GoNextMove)
             }
             (keyboard::Key::Character("v"), modifier) if modifier.command() => {
-                dbg!("TRIGgefr");
                 Some(Message::InitLoadPgn)
             }
             _ => None,

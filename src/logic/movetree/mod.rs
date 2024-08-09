@@ -153,11 +153,7 @@ impl MoveTree {
             Some(parent_id) => match self.tree[parent_id].get() {
                 TreeNode::GameStart => (self.game_start(), STARTING_POSITION_FEN.to_string()),
                 TreeNode::StartVariation => self.get_prev_move(parent_id),
-                TreeNode::Move(fen, _) => {
-                    dbg!("fen");
-                    dbg!(fen.to_string());
-                    (parent_id, fen.to_string())
-                }
+                TreeNode::Move(fen, _) => (parent_id, fen.to_string()),
                 TreeNode::EndVariation | TreeNode::Result(_) => unreachable!(),
             },
             None => (self.game_start(), STARTING_POSITION_FEN.to_string()),

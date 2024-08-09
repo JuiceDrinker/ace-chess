@@ -69,7 +69,9 @@ impl Move {
                     };
 
                     let (src_rank, src_file) = if board.get_valid_moves_to(to, piece).len() > 1 {
-                        (Some(to.rank()), Some(to.file()))
+                        (Some(from.rank()), Some(from.file()))
+                    } else if piece == Piece::Pawn && captures {
+                        (None, Some(from.file()))
                     } else {
                         (None, None)
                     };
@@ -77,8 +79,8 @@ impl Move {
                     CMoveKind::Regular(MoveDetails {
                         piece,
                         captures,
-                        dst_rank: from.rank(),
-                        dst_file: from.file(),
+                        dst_rank: to.rank(),
+                        dst_file: to.file(),
                         src_rank,
                         src_file,
                         promotion,

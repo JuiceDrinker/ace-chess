@@ -35,6 +35,12 @@ impl CMove {
         let mut san = String::new();
 
         match &self.kind {
+            CMoveKind::Castles(side) => {
+                san = match side {
+                    CastleSide::Short => "O-O".to_string(),
+                    CastleSide::Long => "O-O-O".to_string(),
+                };
+            }
             CMoveKind::Regular(details) => {
                 // Add piece symbol (except for pawns)
                 if details.piece != Piece::Pawn {
@@ -63,12 +69,6 @@ impl CMove {
                     san.push('=');
                     san.push_str(&format!("{}", promotion_piece));
                 }
-            }
-            CMoveKind::Castles(side) => {
-                san = match side {
-                    CastleSide::Short => "O-O".to_string(),
-                    CastleSide::Long => "O-O-O".to_string(),
-                };
             }
         }
 
