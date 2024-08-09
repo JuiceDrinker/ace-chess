@@ -86,6 +86,7 @@ impl Application for App {
                 self.board =
                     Board::from_str(&fen).expect("Failed to load board from prev_move fen");
                 self.displayed_node = id;
+                dbg!("am I here or what");
             }
             Message::GoNextMove => {
                 dbg!(&self.move_tree);
