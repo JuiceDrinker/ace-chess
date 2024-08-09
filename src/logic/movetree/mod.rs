@@ -61,36 +61,21 @@ impl MoveTree {
     }
 
     pub fn add_new_move(&mut self, new_cmove: CMove, parent: NodeId, new_fen: String) -> NodeId {
-        // These chidren are potentail siblings
-        // If any of them are identical to the node we're adding we should skip it
-        let mut duplicate = None;
-        for child in parent.children(&self.tree) {
-            match self.tree[child].get() {
-                TreeNode::StartVariation => {
-                    let parent = self.tree.get(child).unwrap().parent().unwrap();
-                    match self.tree[parent].get() {
-                        TreeNode::GameStart => continue,
-                        TreeNode::Move(_, cmove) => {
-                            if *cmove == new_cmove {
-                                duplicate = Some(parent);
-                                break;
-                            }
-                        }
-                        TreeNode::EndVariation | TreeNode::StartVariation | TreeNode::Result(_) => {
-                            unreachable!()
+        // Check for duplicate moves among the children of the parent node
+        let duplicate =
+            parent
+                .children(&self.tree)
+                .find_map(|child| match self.tree[child].get() {
+                    TreeNode::StartVariation => {
+                        let parent = self.tree[child].parent().unwrap();
+                        match self.tree[parent].get() {
+                            TreeNode::Move(_, cmove) if *cmove == new_cmove => Some(parent),
+                            _ => None,
                         }
                     }
-                }
-                TreeNode::Move(_, cmove) => {
-                    if *cmove == new_cmove {
-                        duplicate = Some(parent);
-                        break;
-                    }
-                }
-                TreeNode::GameStart => unreachable!(),
-                TreeNode::EndVariation | TreeNode::Result(_) => continue,
-            };
-        }
+                    TreeNode::Move(_, cmove) if *cmove == new_cmove => Some(child),
+                    _ => None,
+                });
 
         match duplicate {
             Some(id) => id,
