@@ -2,7 +2,7 @@ use crate::{
     common::file::File,
     logic::movetree::pgn::{lexer::tokenize, parser::PgnParser},
 };
-use common::{board::Board, rank::Rank, square::Square};
+use common::{board::Board, r#move::Move, rank::Rank, square::Square};
 use iced::{
     alignment, clipboard, executor, keyboard,
     widget::{self, container, responsive, row, Button, Column, Container, Image, Row, Text},
@@ -60,12 +60,15 @@ impl Application for App {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            Message::SelectSquare(s) => self.selected_square = Some(s),
-            Message::MakeMove(from, to, displayed_node) => {
-                let m = common::r#move::Move::new(from, to);
-                if self.board.is_legal(m) {
-                    if let Ok(cmove) = m.try_into_cmove(self.board) {
-                        self.board = self.board.update(m);
+            Message::SelectSquare(square) => self.selected_square = Some(square),
+            Message::MakeMove(attempted_move, displayed_node) => {
+                dbg!(attempted_move);
+                dbg!("getting here 3?");
+                if self.board.is_legal(attempted_move) {
+                    dbg!("getting here 2?");
+                    if let Ok(cmove) = attempted_move.try_into_cmove(self.board) {
+                        dbg!("getting here ");
+                        self.board = self.board.update(attempted_move);
                         let new_node = self.move_tree.add_new_move(
                             cmove,
                             displayed_node,
@@ -73,9 +76,16 @@ impl Application for App {
                         );
                         self.selected_square = None;
                         self.displayed_node = new_node;
+                    } else {
+                        self.selected_square = None;
                     }
-                } else if self.board.color_on_is(to, self.board.side_to_move()) {
-                    self.selected_square = Some(to);
+                    // If Illegal move then check whether own piece on square
+                } else if self
+                    .board
+                    .color_on_is(attempted_move.to, self.board.side_to_move())
+                {
+                    // If own piece on square, prime this square to move
+                    self.selected_square = Some(attempted_move.to);
                 } else {
                     self.selected_square = None;
                 }
@@ -189,8 +199,14 @@ impl Application for App {
                             .align_x(alignment::Horizontal::Center)
                             .align_y(alignment::Vertical::Center),
                         )
-                        .on_press(if let Some(s) = self.selected_square {
-                            message::Message::MakeMove(s, square, self.displayed_node)
+                        .on_press(if let Some(selected_square) = self.selected_square {
+                            message::Message::MakeMove(
+                                Move {
+                                    to: square,
+                                    from: selected_square,
+                                },
+                                self.displayed_node,
+                            )
                         } else {
                             message::Message::SelectSquare(square)
                         })
@@ -213,9 +229,9 @@ impl Application for App {
 
             if let Some(next_opts) = &self.next_move_options {
                 let mut row = Row::new().spacing(2).align_items(Alignment::Center);
-                row = row.extend(next_opts.iter().map(|(node, fen)| {
+                row = row.extend(next_opts.iter().map(|(node, notation)| {
                     Button::new(
-                        Container::new(Text::new(fen))
+                        Container::new(Text::new(notation))
                             .align_x(alignment::Horizontal::Center)
                             .align_y(alignment::Vertical::Center),
                     )

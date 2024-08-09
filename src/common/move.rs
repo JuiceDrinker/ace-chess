@@ -67,13 +67,20 @@ impl Move {
                         | (Piece::Pawn, Color::White, Rank::Eighth) => Some(Piece::Queen),
                         _ => None,
                     };
+
+                    let (src_rank, src_file) = if board.get_valid_moves_to(to, piece).len() > 1 {
+                        (Some(to.rank()), Some(to.file()))
+                    } else {
+                        (None, None)
+                    };
+
                     CMoveKind::Regular(MoveDetails {
                         piece,
                         captures,
                         dst_rank: from.rank(),
                         dst_file: from.file(),
-                        src_rank: Some(from.rank()),
-                        src_file: Some(from.file()),
+                        src_rank,
+                        src_file,
                         promotion,
                     })
                 }

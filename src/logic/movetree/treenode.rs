@@ -51,14 +51,6 @@ impl CMove {
 
                 // Add capture symbol
                 if details.captures {
-                    if details.piece == Piece::Pawn {
-                        san.push_str(
-                            details
-                                .src_file
-                                .expect("pawn captures must have disambiguation for file")
-                                .as_str(),
-                        );
-                    }
                     san.push('x');
                 }
 
@@ -118,4 +110,133 @@ pub enum CResult {
     BlackWins,
     Draw,
     NoResult,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_regular_move_pawn() {
+        let cmove = CMove {
+            kind: CMoveKind::Regular(MoveDetails {
+                piece: Piece::Pawn,
+                src_file: None,
+                src_rank: None,
+                dst_file: File::E,
+                dst_rank: Rank::Fourth,
+                captures: false,
+                promotion: None,
+            }),
+            check: false,
+            color: Color::White,
+            checkmate: false,
+            comment: None,
+        };
+        assert_eq!(cmove.to_san(), "e4");
+    }
+
+    #[test]
+    fn test_regular_move_knight_with_disambiguation() {
+        let cmove = CMove {
+            kind: CMoveKind::Regular(MoveDetails {
+                piece: Piece::Knight,
+                src_file: Some(File::C),
+                src_rank: None,
+                dst_file: File::D,
+                dst_rank: Rank::Fifth,
+                captures: false,
+                promotion: None,
+            }),
+            check: false,
+            color: Color::White,
+            checkmate: false,
+            comment: None,
+        };
+        assert_eq!(cmove.to_san(), "Ncd5");
+    }
+
+    #[test]
+    fn test_regular_move_capture_with_check() {
+        let cmove = CMove {
+            kind: CMoveKind::Regular(MoveDetails {
+                piece: Piece::Queen,
+                src_file: None,
+                src_rank: None,
+                dst_file: File::F,
+                dst_rank: Rank::Seventh,
+                captures: true,
+                promotion: None,
+            }),
+            check: true,
+            color: Color::Black,
+            checkmate: false,
+            comment: None,
+        };
+        assert_eq!(cmove.to_san(), "Qxf7+");
+    }
+
+    #[test]
+    fn test_pawn_capture_with_promotion_and_checkmate() {
+        let cmove = CMove {
+            kind: CMoveKind::Regular(MoveDetails {
+                piece: Piece::Pawn,
+                src_file: Some(File::G),
+                src_rank: None,
+                dst_file: File::H,
+                dst_rank: Rank::Eighth,
+                captures: true,
+                promotion: Some(Piece::Queen),
+            }),
+            check: false,
+            color: Color::White,
+            checkmate: true,
+            comment: None,
+        };
+        assert_eq!(cmove.to_san(), "gxh8=Q#");
+    }
+
+    #[test]
+    fn test_castles_kingside() {
+        let cmove = CMove {
+            kind: CMoveKind::Castles(CastleSide::Short),
+            check: false,
+            color: Color::White,
+            checkmate: false,
+            comment: None,
+        };
+        assert_eq!(cmove.to_san(), "O-O");
+    }
+
+    #[test]
+    fn test_castles_queenside_with_check() {
+        let cmove = CMove {
+            kind: CMoveKind::Castles(CastleSide::Long),
+            check: true,
+            color: Color::Black,
+            checkmate: false,
+            comment: None,
+        };
+        assert_eq!(cmove.to_san(), "O-O-O+");
+    }
+
+    #[test]
+    fn test_move_with_comment() {
+        let cmove = CMove {
+            kind: CMoveKind::Regular(MoveDetails {
+                piece: Piece::Bishop,
+                src_file: None,
+                src_rank: None,
+                dst_file: File::C,
+                dst_rank: Rank::Fourth,
+                captures: false,
+                promotion: None,
+            }),
+            check: false,
+            color: Color::White,
+            checkmate: false,
+            comment: Some("Good move!".to_string()),
+        };
+        assert_eq!(cmove.to_san(), "Bc4 Good move!");
+    }
 }

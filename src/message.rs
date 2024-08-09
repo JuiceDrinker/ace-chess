@@ -1,10 +1,10 @@
-use crate::common::square::Square;
+use crate::common::{r#move::Move, square::Square};
 use indextree::NodeId;
 
 #[derive(Clone, Debug)]
 pub enum Message {
     SelectSquare(Square),
-    MakeMove(Square, Square, NodeId),
+    MakeMove(Move, NodeId),
     // HideNextMoveOptions,
     GoPrevMove,
     GoNextMove,
