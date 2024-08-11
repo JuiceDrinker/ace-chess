@@ -41,7 +41,7 @@ pub struct PgnParser<'a> {
 pub enum Expression {
     Move(CMove),
     Variation(Vec<Expression>),
-    Sequence(Box<Expression>, Box<Expression>),
+    // Sequence(Box<Expression>, Box<Expression>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -60,23 +60,15 @@ impl<'a> PgnParser<'a> {
 
     pub fn parse(&mut self) -> Result<MoveTree, PgnParseError> {
         let mut move_tree = MoveTree::new();
-
-        let mut current_fen = String::from(STARTING_POSITION_FEN);
         let mut current = move_tree.game_start();
-
         while let Ok(expression) = self.expression() {
-            let (node, fen) =
-                move_tree.add_expression_to_tree(expression, &current, current_fen.clone());
-            if !matches!(move_tree.tree[node].get(), TreeNode::EndVariation) {
-                current = node;
-                current_fen = fen;
-            }
+            dbg!(expression.clone());
+            let node = move_tree.add_expression_to_tree(expression, current);
+            current = node;
         }
-
         let result = self.result()?;
         let new_node = move_tree.tree.new_node(TreeNode::Result(result));
         current.append(new_node, &mut move_tree.tree);
-
         Ok(move_tree)
     }
 
@@ -808,12 +800,12 @@ mod test {
         );
     }
 
-    // #[test]
-    // fn test_variation() {
-    //     let tokens = tokenize("( 1. e4 e5 )");
-    //     let res = PgnParser::new(tokens.iter()).variation().unwrap();
-    //     assert_eq!(res.len(), 1)
-    // }
+    #[test]
+    fn test_variation() {
+        let tokens = tokenize("( 1. e4 e5 )");
+        let res = PgnParser::new(tokens.iter()).variation().unwrap();
+        assert_eq!(res.len(), 1)
+    }
     //
     // #[test]
     // fn debug() {
@@ -835,7 +827,14 @@ mod test {
 
     #[test]
     fn parses_variations() {
-        let tokens = tokenize("1.d4 e5 (1... Nh6) (1... Nf6 2. Nh3 (Nf3)) 0-1");
+        let tokens = tokenize("1.d4 e5 (1... Na6) (1... Nh6) (1...Nf6) 0-1");
+        let res = PgnParser::new(tokens.iter()).parse();
+
+        assert!(res.is_ok());
+    }
+    #[test]
+    fn parses_variations() {
+        let tokens = tokenize("1.d4 e5 (1... Nh6) (1...Nf6) 0-1");
         let res = PgnParser::new(tokens.iter()).parse();
 
         assert!(res.is_ok());

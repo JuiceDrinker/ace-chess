@@ -1,7 +1,5 @@
 use std::fmt;
 
-use iced::widget::checkbox;
-
 use crate::{
     common::{color::Color, rank::Rank},
     error::{Error, ParseKind},

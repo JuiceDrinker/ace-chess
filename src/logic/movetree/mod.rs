@@ -3,6 +3,7 @@ pub mod treenode;
 
 use std::str::FromStr;
 
+use iced::widget::shader::wgpu::hal::GetAccelerationStructureBuildSizesDescriptor;
 use indextree::{Arena, NodeId};
 
 use crate::{
@@ -21,7 +22,6 @@ pub enum NextMoveOptions {
     Single(NodeId, Fen),
     Multiple(Vec<(NodeId, Notation)>),
 }
-
 impl NextMoveOptions {
     pub fn new(options: Vec<(NodeId, Fen, Notation)>) -> Result<Self> {
         match options.len() {
@@ -87,55 +87,84 @@ impl MoveTree {
         }
     }
 
+    fn add_move_to_tree(&mut self, cmove: CMove, parent: indextree::NodeId) -> indextree::NodeId {
+        let fen = generate_next_fen(&self.get_last_fen(parent), &cmove);
+        let new_node = self.tree.new_node(TreeNode::Move(fen.clone(), cmove));
+        parent.append(new_node, &mut self.tree);
+        new_node
+    }
+
     fn add_expression_to_tree(
         &mut self,
         expression: Expression,
-        current: &indextree::NodeId,
-        current_fen: Fen,
-    ) -> (indextree::NodeId, Fen) {
+        parent: indextree::NodeId,
+    ) -> indextree::NodeId {
         match expression {
-            Expression::Move(cmove) => {
-                let fen = generate_next_fen(&current_fen, &cmove);
-                let new_node = self.tree.new_node(TreeNode::Move(fen.clone(), cmove));
-                current.append(new_node, &mut self.tree);
-                (new_node, fen)
-            }
-            Expression::Variation(expressions) => {
-                let parent_fen = self.find_parent_fen(current);
-
-                let new_node = self.tree.new_node(TreeNode::StartVariation);
-                current.append(new_node, &mut self.tree);
-                let mut var_current = new_node;
-                let mut var_fen = parent_fen;
-
-                for expression in expressions {
-                    let (node, fen) =
-                        self.add_expression_to_tree(expression, &var_current, var_fen.clone());
-                    // Only update var_current and var_fen if we're not returning from a nested variation
-                    if !matches!(self.tree[node].get(), TreeNode::EndVariation) {
-                        var_current = node;
-                        var_fen = fen;
-                    }
-                }
-                let new_node = self.tree.new_node(TreeNode::EndVariation);
-                var_current.append(new_node, &mut self.tree);
-                // Return the original FEN, not the variation's last FEN
-                (new_node, current_fen)
-            }
-            Expression::Sequence(first, second) => {
-                let (node1, fen) = self.add_expression_to_tree(*first, current, current_fen);
-                self.add_expression_to_tree(*second, &node1, fen)
-            }
+            Expression::Move(cmove) => self.add_move_to_tree(cmove, parent),
+            Expression::Variation(expressions) => self.add_variation_to_tree(expressions, parent),
+            // Expression::Sequence(first, second) => {
+            //     self.add_sequence_to_tree(*first, *second, parent)
+            // }
         }
     }
 
-    fn find_parent_fen(&self, node: &indextree::NodeId) -> Fen {
-        let mut current = *node;
-        while let Some(parent) = self.tree.get(current).unwrap().parent() {
-            if let TreeNode::Move(fen, _) = self.tree[parent].get() {
-                return fen.clone();
+    fn add_variation_to_tree(
+        &mut self,
+        expressions: Vec<Expression>,
+        parent: indextree::NodeId,
+    ) -> indextree::NodeId {
+        let grand_parent = self.tree[parent].parent().unwrap();
+        let start_variation = self.tree.new_node(TreeNode::StartVariation);
+        dbg!(self.tree[parent].get());
+        grand_parent.append(start_variation, &mut self.tree);
+
+        let mut var_current = start_variation;
+
+        for expression in expressions {
+            let new_node = self.add_expression_to_tree(expression, var_current);
+            var_current = if let TreeNode::EndVariation = self.tree[new_node].get() {
+                parent
+            } else {
+                new_node
             }
-            current = parent;
+        }
+
+        let end_variation = self.tree.new_node(TreeNode::EndVariation);
+        var_current.append(end_variation, &mut self.tree);
+
+        end_variation
+    }
+
+    fn add_sequence_to_tree(
+        &mut self,
+        first: Expression,
+        second: Expression,
+        parent: indextree::NodeId,
+    ) -> indextree::NodeId {
+        // dbg!(first.clone(), second.clone());
+        let new_node = self.add_expression_to_tree(first, parent);
+        // dbg!(self.tree[parent].get());
+        // dbg!(self.tree[new_node].get());
+        if let Expression::Variation(_) = second {
+            self.add_expression_to_tree(second, parent)
+        } else {
+            self.add_expression_to_tree(second, new_node)
+        }
+    }
+
+    // If given node has FEN, return it
+    // else traverse up tree till you find one
+    fn get_last_fen(&self, node: indextree::NodeId) -> Fen {
+        if let TreeNode::Move(fen, _) = self.tree[node].get() {
+            return fen.clone();
+        } else {
+            let mut current = node;
+            while let Some(parent) = self.tree.get(current).unwrap().parent() {
+                if let TreeNode::Move(fen, _) = self.tree[parent].get() {
+                    return fen.clone();
+                }
+                current = parent;
+            }
         }
         // If we can't find a parent move, return the starting position
         STARTING_POSITION_FEN.to_string()
@@ -200,7 +229,6 @@ fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
         CMoveKind::Regular(details) => {
             let dest = Square::make_square(details.dst_file, details.dst_rank);
             let potential_source_squares = board.get_valid_moves_to(dest, details.piece);
-            // assert!(!src.is_empty());
 
             if potential_source_squares.len() == 1 {
                 board.update(crate::common::r#move::Move {

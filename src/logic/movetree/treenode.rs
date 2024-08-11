@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::common::color::Color;
 use crate::common::file::File;
 use crate::common::piece::Piece;
@@ -28,6 +30,12 @@ pub struct CMove {
     pub color: Color,
     pub checkmate: bool,
     pub comment: Option<String>,
+}
+
+impl Display for CMove {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_san())
+    }
 }
 
 impl CMove {
