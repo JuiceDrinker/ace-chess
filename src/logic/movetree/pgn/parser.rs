@@ -1,9 +1,10 @@
 use std::{fmt::Debug, iter::Peekable, slice::Iter, str::FromStr};
 
 use crate::{
-    common::{color::Color, file::File, piece::Piece, rank::Rank},
+    common::{board::Board, color::Color, file::File, piece::Piece, rank::Rank, square::Square},
+    error::Error,
     logic::movetree::{
-        treenode::{CMove, CMoveKind, CResult, CastleSide, MoveDetails, TreeNode},
+        treenode::{CMove, CMoveKind, CResult, CastleSide, Fen, MoveDetails, TreeNode},
         MoveTree,
     },
 };
@@ -11,6 +12,7 @@ use crate::{
 use super::{errors::PgnParseError, lexer::Token};
 
 pub const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
 // Grammar
 // R: 1 … 8               # Rank
 // F: a … h               # File
@@ -33,6 +35,7 @@ pub const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQ
 
 #[derive(Debug)]
 pub struct PgnParser<'a> {
+    move_tree: MoveTree,
     tokens: Peekable<Iter<'a, Token>>,
     cursor: usize,
 }
@@ -52,25 +55,106 @@ enum MoveNumber {
 impl<'a> PgnParser<'a> {
     pub fn new(tokens: Iter<'a, Token>) -> Self {
         Self {
+            move_tree: MoveTree::default(),
             tokens: tokens.peekable(),
             cursor: 0,
         }
     }
 
     pub fn parse(&mut self) -> Result<MoveTree, PgnParseError> {
-        let mut move_tree = MoveTree::new();
-        let mut current = move_tree.game_start();
+        // let mut move_tree = MoveTree::new();
+        let mut current = self.move_tree.game_start();
 
         while let Ok(expression) = self.expression() {
-            let node = move_tree.add_expression_to_tree(expression, current);
+            let node = self.add_expression_to_tree(expression, current);
             current = node;
         }
 
         let result = self.result()?;
-        let new_node = move_tree.tree.new_node(TreeNode::Result(result));
-        current.append(new_node, &mut move_tree.tree);
+        let new_node = self.move_tree.tree.new_node(TreeNode::Result(result));
+        current.append(new_node, &mut self.move_tree.tree);
 
-        Ok(move_tree)
+        Ok(self.move_tree.clone())
+    }
+
+    fn add_move_to_tree(&mut self, cmove: CMove, parent: indextree::NodeId) -> indextree::NodeId {
+        // Not convinced this works but tests pass...
+        if let Ok(fen) = generate_next_fen(&self.get_last_fen(parent), &cmove) {
+            let new_node = self
+                .move_tree
+                .tree
+                .new_node(TreeNode::Move(fen.clone(), cmove));
+            parent.append(new_node, &mut self.move_tree.tree);
+            new_node
+        } else {
+            match self.move_tree.tree[parent].parent() {
+                Some(grandparent) => {
+                    let fen = self.get_last_fen(grandparent);
+                    let new_node = self
+                        .move_tree
+                        .tree
+                        .new_node(TreeNode::Move(fen.clone(), cmove));
+                    parent.append(new_node, &mut self.move_tree.tree);
+                    new_node
+                }
+                None => panic!("Could not add move: {} to tree", cmove.to_san()),
+            }
+        }
+    }
+
+    fn add_expression_to_tree(
+        &mut self,
+        expression: Expression,
+        parent: indextree::NodeId,
+    ) -> indextree::NodeId {
+        match expression {
+            Expression::Move(cmove) => self.add_move_to_tree(cmove, parent),
+            Expression::Variation(expressions) => self.add_variation_to_tree(expressions, parent),
+        }
+    }
+
+    fn add_variation_to_tree(
+        &mut self,
+        expressions: Vec<Expression>,
+        parent: indextree::NodeId,
+    ) -> indextree::NodeId {
+        let grand_parent = self.move_tree.tree[parent].parent().unwrap();
+        let start_variation = self.move_tree.tree.new_node(TreeNode::StartVariation);
+        grand_parent.append(start_variation, &mut self.move_tree.tree);
+
+        let mut var_current = start_variation;
+
+        for expression in expressions {
+            let new_node = self.add_expression_to_tree(expression, var_current);
+            var_current = if let TreeNode::EndVariation = self.move_tree.tree[new_node].get() {
+                parent
+            } else {
+                new_node
+            }
+        }
+
+        let end_variation = self.move_tree.tree.new_node(TreeNode::EndVariation);
+        var_current.append(end_variation, &mut self.move_tree.tree);
+
+        end_variation
+    }
+
+    // If given node has FEN, return it
+    // else traverse up tree till you find one
+    fn get_last_fen(&self, node: indextree::NodeId) -> Fen {
+        if let TreeNode::Move(fen, _) = self.move_tree.tree[node].get() {
+            return fen.clone();
+        } else {
+            let mut current = node;
+            while let Some(parent) = self.move_tree.tree.get(current).unwrap().parent() {
+                if let TreeNode::Move(fen, _) = self.move_tree.tree[parent].get() {
+                    return fen.clone();
+                }
+                current = parent;
+            }
+        }
+        // If we can't find a parent move, return the starting position
+        STARTING_POSITION_FEN.to_string()
     }
 
     // E: MT C? | V | E E    # Element (allows for comments and variations between moves)
@@ -653,12 +737,90 @@ impl<'a> PgnParser<'a> {
     }
 }
 
+pub fn generate_next_fen(current_fen: &str, cmove: &CMove) -> crate::Result<Fen> {
+    // NOTE: Currently board struct only handles promotion to queen
+    let mut board = Board::from_str(current_fen).expect("To be able to create a valid fen");
+
+    match &cmove.kind {
+        CMoveKind::Castles(side) => {
+            let (from, to) = match (cmove.color, side) {
+                (Color::White, CastleSide::Short) => (Square::E1, Square::G1),
+                (Color::White, CastleSide::Long) => (Square::E1, Square::C1),
+                (Color::Black, CastleSide::Short) => (Square::E8, Square::G8),
+                (Color::Black, CastleSide::Long) => (Square::E8, Square::C8),
+            };
+            Ok(board
+                .update(crate::common::r#move::Move { from, to })
+                .to_string())
+        }
+        CMoveKind::Regular(details) => {
+            let dest = Square::make_square(details.dst_file, details.dst_rank);
+            let potential_source_squares = board.get_valid_moves_to(dest, details.piece);
+
+            if potential_source_squares.len() == 1 {
+                board.update(crate::common::r#move::Move {
+                    from: potential_source_squares.into_iter().next().unwrap(),
+                    to: dest,
+                });
+
+                Ok(board.to_string())
+            } else {
+                // Handle disambiguation
+                let mut from_square = None;
+                for square in potential_source_squares {
+                    if (details.src_file.is_some() && square.file() == details.src_file.unwrap())
+                        || (details.src_rank.is_some()
+                            && square.rank() == details.src_rank.unwrap())
+                    {
+                        from_square = Some(square);
+                        break;
+                    }
+                }
+
+                if let Some(from) = from_square {
+                    board.update(crate::common::r#move::Move { from, to: dest });
+                } else {
+                    return Err(Error::FenGeneration {
+                        fen: board.to_string(),
+                        cmove: cmove.clone(),
+                    });
+                }
+                Ok(board.to_string())
+            }
+        }
+    }
+}
 #[cfg(test)]
 mod test {
     use crate::logic::movetree::pgn::lexer::{tokenize, Token};
 
     use super::{PgnParseError, PgnParser, *};
 
+    #[test]
+    fn next_fen() {
+        let res = generate_next_fen(
+            STARTING_POSITION_FEN,
+            &CMove {
+                kind: CMoveKind::Regular(MoveDetails {
+                    piece: Piece::Pawn,
+                    dst_rank: Rank::Fourth,
+                    dst_file: File::D,
+                    captures: false,
+                    src_rank: None,
+                    src_file: None,
+                    promotion: None,
+                }),
+                check: false,
+                color: Color::White,
+                checkmate: false,
+                comment: None,
+            },
+        );
+        assert_eq!(
+            res,
+            Ok("rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1".to_string())
+        );
+    }
     #[test]
     fn test_white_move_number() {
         let tokens = [Token::Number(1), Token::Dot];
