@@ -3,7 +3,6 @@ pub mod treenode;
 
 use std::str::FromStr;
 
-use iced::widget::shader::wgpu::hal::GetAccelerationStructureBuildSizesDescriptor;
 use indextree::{Arena, NodeId};
 
 use crate::{
@@ -88,10 +87,21 @@ impl MoveTree {
     }
 
     fn add_move_to_tree(&mut self, cmove: CMove, parent: indextree::NodeId) -> indextree::NodeId {
-        let fen = generate_next_fen(&self.get_last_fen(parent), &cmove);
-        let new_node = self.tree.new_node(TreeNode::Move(fen.clone(), cmove));
-        parent.append(new_node, &mut self.tree);
-        new_node
+        if let Ok(fen) = generate_next_fen(&self.get_last_fen(parent), &cmove) {
+            let new_node = self.tree.new_node(TreeNode::Move(fen.clone(), cmove));
+            parent.append(new_node, &mut self.tree);
+            new_node
+        } else {
+            match self.tree[parent].parent() {
+                Some(grandparent) => {
+                    let fen = self.get_last_fen(grandparent);
+                    let new_node = self.tree.new_node(TreeNode::Move(fen.clone(), cmove));
+                    parent.append(new_node, &mut self.tree);
+                    new_node
+                }
+                None => panic!("wtf something went wrong adding to tree"),
+            }
+        }
     }
 
     fn add_expression_to_tree(
@@ -102,9 +112,6 @@ impl MoveTree {
         match expression {
             Expression::Move(cmove) => self.add_move_to_tree(cmove, parent),
             Expression::Variation(expressions) => self.add_variation_to_tree(expressions, parent),
-            // Expression::Sequence(first, second) => {
-            //     self.add_sequence_to_tree(*first, *second, parent)
-            // }
         }
     }
 
@@ -210,7 +217,7 @@ impl MoveTree {
     }
 }
 
-fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
+fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Result<Fen> {
     // NOTE: Currently board struct only handles promotion to queen
     let mut board = Board::from_str(current_fen).expect("To be able to create a valid fen");
 
@@ -222,9 +229,9 @@ fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
                 (Color::Black, CastleSide::Short) => (Square::E8, Square::G8),
                 (Color::Black, CastleSide::Long) => (Square::E8, Square::C8),
             };
-            board
+            Ok(board
                 .update(crate::common::r#move::Move { from, to })
-                .to_string()
+                .to_string())
         }
         CMoveKind::Regular(details) => {
             let dest = Square::make_square(details.dst_file, details.dst_rank);
@@ -235,6 +242,8 @@ fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
                     from: potential_source_squares.into_iter().next().unwrap(),
                     to: dest,
                 });
+
+                Ok(board.to_string())
             } else {
                 // Handle disambiguation
                 let mut from_square = None;
@@ -251,11 +260,13 @@ fn generate_next_fen(current_fen: &str, cmove: &CMove) -> Fen {
                 if let Some(from) = from_square {
                     board.update(crate::common::r#move::Move { from, to: dest });
                 } else {
-                    panic!("Ambiguous move: {:?}", details);
+                    return Err(Error::FenGeneration {
+                        fen: board.to_string(),
+                        cmove: cmove.clone(),
+                    });
                 }
+                Ok(board.to_string())
             }
-
-            board.to_string()
         }
     }
 }
@@ -293,7 +304,7 @@ mod test {
         );
         assert_eq!(
             res,
-            "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1"
+            Ok("rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1".to_string())
         );
     }
 }

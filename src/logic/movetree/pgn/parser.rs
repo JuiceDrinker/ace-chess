@@ -16,7 +16,7 @@ pub const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQ
 // F: a … h               # File
 // P: N, B, R, Q, K       # Piece
 // PM: PFFR | PRFR | PFR | PC # Piece Move
-// PC: P'x'FR | PFxFR | PRxFR # Piece Move
+// PC: P'x'FR | PFxFR | PRxFR # Piece capture
 // PM1: FR | FxFR | FR=P | FxFR=P  # Pawn Move
 // C: { string }          # Comment
 // C1: '0-0' | '0-0-0'    # Castling
@@ -41,7 +41,6 @@ pub struct PgnParser<'a> {
 pub enum Expression {
     Move(CMove),
     Variation(Vec<Expression>),
-    // Sequence(Box<Expression>, Box<Expression>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -61,41 +60,33 @@ impl<'a> PgnParser<'a> {
     pub fn parse(&mut self) -> Result<MoveTree, PgnParseError> {
         let mut move_tree = MoveTree::new();
         let mut current = move_tree.game_start();
+
         while let Ok(expression) = self.expression() {
-            dbg!(expression.clone());
             let node = move_tree.add_expression_to_tree(expression, current);
             current = node;
         }
+
         let result = self.result()?;
         let new_node = move_tree.tree.new_node(TreeNode::Result(result));
         current.append(new_node, &mut move_tree.tree);
+
         Ok(move_tree)
     }
 
     // E: MT C? | V | E E    # Element (allows for comments and variations between moves)
     fn expression(&mut self) -> Result<Expression, PgnParseError> {
-        let first_expression = if let Ok(mut move_text) = self.move_text() {
+        if let Ok(mut move_text) = self.move_text() {
             if let Ok(comment) = self.comment() {
                 move_text.comment = Some(comment);
-                Expression::Move(move_text)
+                Ok(Expression::Move(move_text))
             } else {
-                Expression::Move(move_text)
+                Ok(Expression::Move(move_text))
             }
         } else if let Ok(variation) = self.variation() {
-            Expression::Variation(variation)
+            Ok(Expression::Variation(variation))
         } else {
             return Err(PgnParseError::expression_parsing_error(self.cursor));
-        };
-
-        if self.tokens.peek() != Some(&&Token::EndVariation) {
-            if let Ok(second_expression) = self.expression() {
-                return Ok(Expression::Sequence(
-                    Box::new(first_expression),
-                    Box::new(second_expression),
-                ));
-            }
         }
-        Ok(first_expression)
     }
 
     fn variation(&mut self) -> Result<Vec<Expression>, PgnParseError> {
@@ -804,8 +795,9 @@ mod test {
     fn test_variation() {
         let tokens = tokenize("( 1. e4 e5 )");
         let res = PgnParser::new(tokens.iter()).variation().unwrap();
-        assert_eq!(res.len(), 1)
+        assert_eq!(res.len(), 2)
     }
+
     //
     // #[test]
     // fn debug() {
@@ -826,8 +818,16 @@ mod test {
     // }
 
     #[test]
-    fn parses_variations() {
+    fn parses_variations_multiple() {
         let tokens = tokenize("1.d4 e5 (1... Na6) (1... Nh6) (1...Nf6) 0-1");
+        let res = PgnParser::new(tokens.iter()).parse();
+
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn parses_variations_nested() {
+        let tokens = tokenize("1.d4 e5 (1... Nh6 2.e4 (e3)) (1...Nf6) 0-1");
         let res = PgnParser::new(tokens.iter()).parse();
 
         assert!(res.is_ok());

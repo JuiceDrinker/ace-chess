@@ -1,3 +1,5 @@
+use crate::logic::movetree::treenode::CMove;
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Error {
     Comm,
@@ -12,6 +14,7 @@ pub enum Error {
     InvalidPgn { pgn: String },
     ParseError(ParseKind),
     PgnGeneration,
+    FenGeneration { fen: String, cmove: CMove },
 }
 
 #[derive(PartialEq, Debug, Clone)]
