@@ -3,7 +3,7 @@ pub mod treenode;
 
 use indextree::{Arena, NodeId};
 
-use crate::{error::Error, Result};
+use crate::{common::color::Color, error::Error, Result};
 
 use self::{
     pgn::parser::STARTING_POSITION_FEN,
@@ -73,9 +73,17 @@ impl MoveTree {
         match duplicate {
             Some(id) => id,
             None => {
-                let node = self.tree.new_node(TreeNode::Move(new_fen, new_cmove));
-                parent.append(node, &mut self.tree);
-                node
+                if parent.children(&self.tree).next().is_some() {
+                    let start_variation = self.tree.new_node(TreeNode::StartVariation);
+                    parent.append(start_variation, &mut self.tree);
+                    let node = self.tree.new_node(TreeNode::Move(new_fen, new_cmove));
+                    start_variation.append(node, &mut self.tree);
+                    node
+                } else {
+                    let node = self.tree.new_node(TreeNode::Move(new_fen, new_cmove));
+                    parent.append(node, &mut self.tree);
+                    node
+                }
             }
         }
     }
@@ -117,5 +125,39 @@ impl MoveTree {
             TreeNode::Move(fen, _) => Some(fen),
             _ => None,
         }
+    }
+
+    pub fn generate_pgn(&self, root: NodeId) -> String {
+        let mut pgn = String::new();
+
+        match self.tree[root].get() {
+            TreeNode::Move(_, cmove) => match cmove.color {
+                Color::White => {
+                    pgn.push_str(&format!("{}. {}", cmove.move_number, &cmove.to_san()))
+                }
+                Color::Black => {
+                    let parent = self.tree[root].parent().unwrap();
+                    if matches!(self.tree[parent].get(), TreeNode::StartVariation) {
+                        pgn.push_str(&format!("{}... {} ", cmove.move_number, cmove.to_san()))
+                    } else {
+                        pgn.push_str(&format!(" {} ", cmove.to_san()))
+                    }
+                }
+            },
+            _ => pgn.push_str(&self.tree[root].get().to_string()),
+        }
+
+        // First generate for variation
+        root.children(&self.tree)
+            .filter(|child| matches!(self.tree[*child].get(), TreeNode::StartVariation))
+            // When building tree's from user input we don't append EndVariation node
+            .for_each(|variation| pgn.push_str(&format!(" {})", &self.generate_pgn(variation))));
+
+        // And then the mainline
+        root.children(&self.tree)
+            .filter(|child| matches!(self.tree[*child].get(), TreeNode::Move(..)))
+            .for_each(|main_line| pgn.push_str(&self.generate_pgn(main_line)));
+
+        pgn
     }
 }

@@ -209,13 +209,15 @@ impl Application for App {
                 board_row = Row::new().spacing(0).align_items(Alignment::Center);
             }
 
-            // let move_text = row!(Text::new(self.move_tree.generate_pgn()))
-            //     .width(size.width * 0.3)
-            //     // .spacing(5)
-            //     .align_items(Alignment::End);
+            let move_text = row!(Text::new(
+                self.move_tree.generate_pgn(self.move_tree.game_start())
+            ))
+            .width(size.width * 0.3)
+            // .spacing(5)
+            .align_items(Alignment::End);
 
-            // let content = row!(board_col, move_text);
-            let content = row!(board_col);
+            let content = row!(board_col, move_text);
+            // let content = row!(board_col);
 
             if let Some(next_opts) = &self.next_move_options {
                 let mut row = Row::new().spacing(2).align_items(Alignment::Center);

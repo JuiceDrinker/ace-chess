@@ -20,7 +20,5 @@ pub enum Error {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseKind {
     CharToPiece,
-    StringToPgn,
-    StringToNag,
     MoveToCMove,
 }

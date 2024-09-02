@@ -89,6 +89,7 @@ impl Move {
             let check = next_board.is_check();
             let checkmate = next_board.is_checkmate();
             return Ok(CMove {
+                move_number: board.fullmoves() as usize,
                 kind,
                 check,
                 color: board.side_to_move(),
@@ -98,6 +99,7 @@ impl Move {
         };
         Err(Error::ParseError(ParseKind::MoveToCMove))
     }
+
     pub fn as_notation(self, board: &Board) -> String {
         let Move { from, to } = self;
         let piece = board.piece_on(from).unwrap();

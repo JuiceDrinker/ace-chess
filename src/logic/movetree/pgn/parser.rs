@@ -1,4 +1,9 @@
-use std::{fmt::Debug, iter::Peekable, slice::Iter, str::FromStr};
+use std::{
+    fmt::{Debug, Display},
+    iter::Peekable,
+    slice::Iter,
+    str::FromStr,
+};
 
 use crate::{
     common::{board::Board, color::Color, file::File, piece::Piece, rank::Rank, square::Square},
@@ -48,8 +53,19 @@ pub enum Expression {
 
 #[derive(Debug, PartialEq, Eq)]
 enum MoveNumber {
-    WhiteMoveNumber(String),
-    BlackMoveNumber(String),
+    WhiteMoveNumber(usize),
+    BlackMoveNumber(usize),
+}
+
+impl Display for MoveNumber {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            MoveNumber::WhiteMoveNumber(number) => format!("{}. ", number),
+            MoveNumber::BlackMoveNumber(number) => format!("{}... ", number),
+        };
+
+        write!(f, "{value}")
+    }
 }
 
 impl<'a> PgnParser<'a> {
@@ -296,7 +312,7 @@ impl<'a> PgnParser<'a> {
                 self.consume();
                 Ok("#".to_string())
             }
-            Some(_) => Err(PgnParseError::comment_parsing_error(self.cursor)),
+            Some(_) => Err(PgnParseError::checkmate_parsing_error(self.cursor)),
             None => Err(PgnParseError::unexpected_eof(self.cursor)),
         }
     }
@@ -334,7 +350,8 @@ impl<'a> PgnParser<'a> {
             if let Ok(mut move_kind) = self.r#move() {
                 return match move_number {
                     MoveNumber::WhiteMoveNumber(_) => Ok(move_kind),
-                    MoveNumber::BlackMoveNumber(_) => {
+                    MoveNumber::BlackMoveNumber(number) => {
+                        move_kind.move_number = number;
                         move_kind.color = Color::Black;
                         Ok(move_kind)
                     }
@@ -357,21 +374,21 @@ impl<'a> PgnParser<'a> {
                     if self.dot().is_ok() {
                         if self.dot().is_ok() {
                             if self.dot().is_ok() {
-                                return Ok(MoveNumber::BlackMoveNumber(number));
+                                return Ok(MoveNumber::BlackMoveNumber(number.parse().unwrap()));
                             } else {
                                 self.tokens = iter_save;
                                 self.cursor = cursor_save;
                                 return Err(PgnParseError::move_number_parsing_error(self.cursor));
                             }
                         } else {
-                            return Ok(MoveNumber::WhiteMoveNumber(number));
+                            return Ok(MoveNumber::WhiteMoveNumber(number.parse().unwrap()));
                         }
                     } else if let Some(Token::Number(n)) = self.tokens.peek() {
                         number.push_str(&n.to_string());
                         self.consume();
                     } else {
                         self.consume();
-                        return Ok(MoveNumber::BlackMoveNumber(number));
+                        return Ok(MoveNumber::BlackMoveNumber(number.parse().unwrap()));
                     }
                 }
             }
@@ -394,6 +411,7 @@ impl<'a> PgnParser<'a> {
 
         if self.check().is_ok() {
             return Ok(CMove {
+                move_number: 0,
                 kind: move_kind,
                 check: true,
                 checkmate: false,
@@ -402,6 +420,7 @@ impl<'a> PgnParser<'a> {
             });
         } else if self.checkmate().is_ok() {
             return Ok(CMove {
+                move_number: 0,
                 kind: move_kind,
                 check: false,
                 checkmate: true,
@@ -411,6 +430,7 @@ impl<'a> PgnParser<'a> {
         }
 
         Ok(CMove {
+            move_number: 0,
             kind: move_kind,
             check: false,
             checkmate: false,
@@ -687,7 +707,7 @@ impl<'a> PgnParser<'a> {
                 piece
             }
             None => return Err(PgnParseError::unexpected_eof(self.cursor)),
-            _ => return Err(PgnParseError::piece_move_parsing_error(self.cursor)),
+            _ => return Err(PgnParseError::piece_parsing_error(self.cursor)),
         };
 
         Ok(*piece)
@@ -810,6 +830,7 @@ mod test {
                     src_file: None,
                     promotion: None,
                 }),
+                move_number: 1,
                 check: false,
                 color: Color::White,
                 checkmate: false,
@@ -825,30 +846,21 @@ mod test {
     fn test_white_move_number() {
         let tokens = [Token::Number(1), Token::Dot];
         let mut parser = PgnParser::new(tokens.iter());
-        assert_eq!(
-            parser.move_number(),
-            Ok(MoveNumber::WhiteMoveNumber("1".to_string()))
-        );
+        assert_eq!(parser.move_number(), Ok(MoveNumber::WhiteMoveNumber(1)));
     }
 
     #[test]
     fn test_black_move_number() {
         let tokens = [Token::Number(1), Token::Dot, Token::Dot, Token::Dot];
         let mut parser = PgnParser::new(tokens.iter());
-        assert_eq!(
-            parser.move_number(),
-            Ok(MoveNumber::BlackMoveNumber("1".to_string()))
-        );
+        assert_eq!(parser.move_number(), Ok(MoveNumber::BlackMoveNumber(1)));
     }
 
     #[test]
     fn test_black_move_number_without_dots() {
         let tokens = [Token::Number(1), Token::Number(1), Token::File('e')];
         let mut parser = PgnParser::new(tokens.iter());
-        assert_eq!(
-            parser.move_number(),
-            Ok(MoveNumber::BlackMoveNumber("11".to_string()))
-        );
+        assert_eq!(parser.move_number(), Ok(MoveNumber::BlackMoveNumber(11)));
     }
 
     #[test]
@@ -861,10 +873,7 @@ mod test {
             Token::Dot,
         ];
         let mut parser = PgnParser::new(tokens.iter());
-        assert_eq!(
-            parser.move_number(),
-            Ok(MoveNumber::BlackMoveNumber("10".to_string()))
-        );
+        assert_eq!(parser.move_number(), Ok(MoveNumber::BlackMoveNumber(10)));
     }
 
     #[test]
@@ -886,6 +895,7 @@ mod test {
                         promotion: None,
                     }
                 }),
+                move_number: 0,
                 check: false,
                 color: Color::White,
                 checkmate: false,
@@ -929,7 +939,7 @@ mod test {
         let tokens = tokenize("4");
         let res = PgnParser::new(tokens.iter()).rank().unwrap();
 
-        assert_eq!(res, Rank::Fourth,);
+        assert_eq!(res, Rank::Fourth);
     }
 
     #[test]

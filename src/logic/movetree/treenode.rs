@@ -17,6 +17,18 @@ pub enum TreeNode {
     Result(CResult),
 }
 
+impl Display for TreeNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            TreeNode::GameStart => "".to_string(),
+            TreeNode::StartVariation => "( ".to_string(),
+            TreeNode::EndVariation => ")".to_string(),
+            TreeNode::Move(_, cmove) => format!(" {} ", cmove.to_san()),
+            TreeNode::Result(result) => result.to_string(),
+        };
+        write!(f, "{}", str)
+    }
+}
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum CMoveKind {
     Regular(MoveDetails),
@@ -29,6 +41,7 @@ pub struct CMove {
     pub check: bool,
     pub color: Color,
     pub checkmate: bool,
+    pub move_number: usize,
     pub comment: Option<String>,
 }
 
@@ -120,6 +133,19 @@ pub enum CResult {
     NoResult,
 }
 
+impl Display for CResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            CResult::WhiteWins => "1-0",
+            CResult::BlackWins => "0-1",
+            CResult::Draw => "1/2-1/2",
+            CResult::NoResult => "*",
+        };
+
+        write!(f, "{}", str)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,6 +162,7 @@ mod tests {
                 captures: false,
                 promotion: None,
             }),
+            move_number: 1,
             check: false,
             color: Color::White,
             checkmate: false,
@@ -156,6 +183,7 @@ mod tests {
                 captures: false,
                 promotion: None,
             }),
+            move_number: 1,
             check: false,
             color: Color::White,
             checkmate: false,
@@ -176,6 +204,7 @@ mod tests {
                 captures: true,
                 promotion: None,
             }),
+            move_number: 1,
             check: true,
             color: Color::Black,
             checkmate: false,
@@ -197,6 +226,7 @@ mod tests {
                 promotion: Some(Piece::Queen),
             }),
             check: false,
+            move_number: 1,
             color: Color::White,
             checkmate: true,
             comment: None,
@@ -212,6 +242,7 @@ mod tests {
             color: Color::White,
             checkmate: false,
             comment: None,
+            move_number: 1,
         };
         assert_eq!(cmove.to_san(), "O-O");
     }
@@ -220,6 +251,7 @@ mod tests {
     fn test_castles_queenside_with_check() {
         let cmove = CMove {
             kind: CMoveKind::Castles(CastleSide::Long),
+            move_number: 1,
             check: true,
             color: Color::Black,
             checkmate: false,
@@ -244,6 +276,7 @@ mod tests {
             color: Color::White,
             checkmate: false,
             comment: Some("Good move!".to_string()),
+            move_number: 1,
         };
         assert_eq!(cmove.to_san(), "Bc4 Good move!");
     }
