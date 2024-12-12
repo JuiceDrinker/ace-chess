@@ -127,36 +127,51 @@ impl MoveTree {
         }
     }
 
-    pub fn generate_pgn(&self, root: NodeId) -> String {
-        let mut pgn = String::new();
-
+    pub fn generate_pgn_for_node(&self, root: NodeId) -> String {
         match self.tree[root].get() {
             TreeNode::Move(_, cmove) => match cmove.color {
-                Color::White => {
-                    pgn.push_str(&format!("{}. {}", cmove.move_number, &cmove.to_san()))
-                }
+                Color::White => format!("{}. {}", cmove.move_number, &cmove.to_san()),
                 Color::Black => {
                     let parent = self.tree[root].parent().unwrap();
                     if matches!(self.tree[parent].get(), TreeNode::StartVariation) {
-                        pgn.push_str(&format!("{}... {} ", cmove.move_number, cmove.to_san()))
+                        format!("{}... {} ", cmove.move_number, cmove.to_san())
                     } else {
-                        pgn.push_str(&format!(" {} ", cmove.to_san()))
+                        format!(" {} ", cmove.to_san())
                     }
                 }
             },
-            _ => pgn.push_str(&self.tree[root].get().to_string()),
+            _ => self.tree[root].get().to_string(),
         }
+    }
+    pub fn generate_pgn(&self, root: NodeId) -> String {
+        let mut pgn = String::new();
 
-        // First generate for variation
-        root.children(&self.tree)
-            .filter(|child| matches!(self.tree[*child].get(), TreeNode::StartVariation))
-            // When building tree's from user input we don't append EndVariation node
-            .for_each(|variation| pgn.push_str(&format!(" {})", &self.generate_pgn(variation))));
+        // First append root's PGN to string
 
-        // And then the mainline
-        root.children(&self.tree)
-            .filter(|child| matches!(self.tree[*child].get(), TreeNode::Move(..)))
-            .for_each(|main_line| pgn.push_str(&self.generate_pgn(main_line)));
+        pgn.push_str(&self.generate_pgn_for_node(root));
+
+        if let Some(mainline) = root
+            .children(&self.tree)
+            .find(|child| matches!(self.tree[*child].get(), TreeNode::Move(..)))
+        {
+            // Then append mainline child
+            pgn.push_str(&self.generate_pgn_for_node(mainline));
+
+            // Then go through all variation nodes
+            // Start variation appends a (
+            // Manually append a )
+            root.children(&self.tree)
+                .filter(|child| matches!(self.tree[*child].get(), TreeNode::StartVariation))
+                .for_each(|variation| {
+                    pgn.push_str(&format!(" {} ", &self.generate_pgn(variation)));
+                    pgn.push_str(" )");
+                });
+
+            // Then append rest of mainline's children
+            mainline
+                .children(&self.tree)
+                .for_each(|variation| pgn.push_str(&format!(" {}", &self.generate_pgn(variation))));
+        };
 
         pgn
     }
